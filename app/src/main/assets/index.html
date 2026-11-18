@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1b1410">
+<title>Microbus Rush</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; height:100%; background:#1b1410; overflow:hidden; touch-action:none;
+    -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent;
+    font-family:"Cairo", Tahoma, -apple-system, "Segoe UI", sans-serif; color:#fff; }
+  #wrap { position:fixed; inset:0; }
+  canvas { display:block; width:100%; height:100%; }
+
+  #hud { position:absolute; left:0; right:0; top:0; padding:calc(env(safe-area-inset-top) + 8px) 10px 0; pointer-events:none; display:none; }
+  .bar { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .pill { background:rgba(20,14,10,.78); border-radius:12px; padding:6px 10px; font-weight:800; font-size:15px; }
+  #money { color:#ffd84d; }
+  #stars { color:#ffd84d; letter-spacing:1px; }
+  #nextCard { margin-top:6px; background:rgba(20,14,10,.78); border-radius:12px; padding:7px 10px; }
+  #nextCard .top { display:flex; justify-content:space-between; align-items:center; font-size:14px; }
+  #nextName { font-weight:800; font-size:16px; }
+  #nextName .ar { font-size:18px; }
+  #wantedCard { display:none; margin-top:6px; background:rgba(20,14,10,.85); border-radius:12px; padding:6px 10px; border:2px solid #ff3b3b; }
+  #wantedCard.alarm { animation:alarm .5s infinite alternate; }
+  @keyframes alarm { from { border-color:#ff3b3b; box-shadow:0 0 12px rgba(255,59,59,.6); } to { border-color:#3b82ff; box-shadow:0 0 12px rgba(59,130,255,.6); } }
+  #wantedCard .wtop { display:flex; justify-content:space-between; align-items:center; font-weight:900; font-size:14px; }
+  #hitsText { font-size:13px; opacity:.95; direction:ltr; }
+  #wantedCard .meters { display:grid; grid-template-columns:auto 1fr auto 1fr; gap:6px; align-items:center; margin-top:4px; }
+  #wantedCard .ml { font-size:12px; }
+  .meter { height:8px; background:rgba(255,255,255,.15); border-radius:4px; overflow:hidden; }
+  #healthFill, #copFill { height:100%; width:100%; border-radius:4px; transition:width .15s; }
+  #healthFill { background:#3ddc84; }
+  #copFill { background:linear-gradient(90deg,#3b82ff,#ff3b3b); width:0; }
+  #jailScreen { background:rgba(10,10,14,.92); }
+  #jailArt { width:min(300px, 80vw); height:auto; border-radius:16px; margin:8px 0 10px; box-shadow:0 8px 30px rgba(0,0,0,.6); }
+  #jailStats { font-size:16px; line-height:1.9; margin-bottom:18px; }
+  #jailStats b { color:#ffd84d; }
+  #chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; min-height:22px; }
+  .chip { border-radius:999px; padding:2px 8px; font-size:12px; font-weight:800; color:#1b1410; }
+  .chip.due { outline:2px solid #fff; animation:pulse .7s infinite alternate; }
+  @keyframes pulse { to { transform:scale(1.08); } }
+  #seats { font-weight:800; font-size:13px; opacity:.9; }
+
+  #controls { direction:ltr; position:absolute; left:0; right:0; bottom:0; display:none; justify-content:space-between; align-items:flex-end;
+    padding:0 14px calc(env(safe-area-inset-bottom) + 14px); pointer-events:none; }
+  .ctl { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; pointer-events:auto; border:0; border-radius:20px; font-weight:900; color:#1b1410; touch-action:none; font-family:inherit; line-height:1.15; }
+  #honk { width:78px; height:64px; background:#ffd84d; font-size:15px; box-shadow:0 4px 0 #b8901a; }
+  #brake { width:118px; height:84px; background:#ff5d5d; font-size:20px; box-shadow:0 5px 0 #a82c2c; color:#fff; }
+  .ctl:active, .ctl.on { transform:translateY(3px); box-shadow:none; }
+  #hint { position:absolute; bottom:calc(env(safe-area-inset-bottom) + 110px); left:0; right:0; text-align:center; font-size:13px; opacity:.7; pointer-events:none; display:none; }
+
+  #pay { position:absolute; left:50%; top:calc(env(safe-area-inset-top) + 128px); transform:translateX(-50%); width:min(330px, 90vw); background:#fff7e6; color:#1b1410;
+    border-radius:20px; padding:14px; box-shadow:0 10px 40px rgba(0,0,0,.6); display:none; text-align:center; }
+  #pay .q { font-size:15px; line-height:1.4; }
+  #pay .q b { font-size:20px; }
+  #pay .bill { display:inline-block; background:#7bc47f; color:#0f3d12; padding:2px 10px; border-radius:6px; font-weight:900; margin:0 2px; }
+  #pay .opts { display:flex; gap:8px; margin-top:12px; }
+  #pay .opts button { font-family:inherit; direction:ltr; flex:1; border:0; border-radius:14px; padding:12px 0; font-size:20px; font-weight:900; background:#1b1410; color:#ffd84d; }
+  #payTimer { height:6px; background:#ffd84d; border-radius:3px; margin-top:10px; transform-origin:left; }
+
+  .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+    padding:24px; box-sizing:border-box; background:rgba(20,14,10,.82); }
+  .overlay.hidden { display:none; }
+  h1 { margin:0; font-size:clamp(36px, 11vw, 60px); line-height:1.25; color:#ffd84d; letter-spacing:1px; text-shadow:0 4px 0 #b8901a; }
+  .ar-title { font-size:26px; margin:4px 0 14px; opacity:.9; }
+  #hornPick { max-width:360px; margin:-6px 0 18px; font-size:14px; }
+  #hornChips { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; max-height:96px; overflow-y:auto; }
+  .hchip { font-family:inherit; border:1px solid rgba(255,216,77,.5); background:rgba(255,216,77,.08); color:#ffd84d; border-radius:999px; padding:5px 10px; font-size:13px; font-weight:700; cursor:pointer; }
+  .hchip.sel { background:#ffd84d; color:#1b1410; }
+  .how { max-width:340px; text-align:right; font-size:13px; line-height:1.5; background:rgba(255,255,255,.07); border-radius:14px; padding:10px 14px; margin-bottom:16px; }
+  .how b { color:#ffd84d; }
+  .btn { font-family:inherit; border:0; border-radius:999px; padding:15px 40px; font-size:19px; font-weight:900; background:#ffd84d; color:#1b1410; box-shadow:0 5px 0 #b8901a; cursor:pointer; }
+  .btn:active { transform:translateY(3px); box-shadow:none; }
+  .stats { font-size:16px; line-height:1.8; margin:12px 0 22px; }
+  .stats .big { font-size:38px; font-weight:900; color:#ffd84d; display:block; }
+  .new { color:#3ddc84; font-weight:900; }
+  #reason { opacity:.8; margin-top:6px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+
+  <div id="hud">
+    <div class="bar">
+      <span class="pill" id="money">0 ج</span>
+      <span class="pill" id="stars">★★★★★</span>
+      <span class="pill" id="time">2:30</span>
+    </div>
+    <div id="nextCard">
+      <div class="top"><span>المحطة الجاية: <span id="nextName"></span></span><span id="seats">0/14</span></div>
+      <div id="chips"></div>
+    </div>
+    <div id="wantedCard">
+      <div class="wtop"><span id="wantedText"></span><span id="hitsText"></span></div>
+      <div class="meters">
+        <span class="ml">❤️</span><div class="meter"><div id="healthFill"></div></div>
+        <span class="ml">🚓</span><div class="meter"><div id="copFill"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="hint">دوس شمال أو يمين الشاشة عشان تغيّر الحارة</div>
+  <div id="controls">
+    <button class="ctl" id="honk">كلاكس<br><span style="font-size:12px">بيب ♪</span></button>
+    <button class="ctl" id="brake">فرامل</button>
+  </div>
+
+  <div id="pay">
+    <div class="q" id="payQ"></div>
+    <div class="opts" id="payOpts"></div>
+    <div id="payTimer"></div>
+  </div>
+
+  <div class="overlay" id="startScreen">
+    <h1>ميكروباص راش</h1>
+    <div class="ar-title" style="font-size:16px;opacity:.6;letter-spacing:2px">MICROBUS RUSH</div>
+    <div class="how">
+      🚐 <b>دوس شمال أو يمين</b> عشان تغيّر الحارة وتفادى العربيات.<br>
+      🛑 في المحطة: خش <b>الحارة اليمين</b> و<b>اضغط فرامل</b> جوه المربع الأصفر.<br>
+      👥 كل راكب فوق راسه <b>لون محطته</b>.. نزّله فيها بالظبط وإلا هيقلب عليك.<br>
+      💵 الركاب بيدفعوا.. <b>ادّيهم الباقي صح</b> وبسرعة!<br>
+      📢 <b>زمّر</b> عشان الناس والعربيات توسّع. ٣ خبطات أو التقييم يوصل صفر والوردية تخلص.
+    </div>
+    <div id="hornPick">
+      <div style="font-weight:800;margin-bottom:6px">🎺 اختار الكلاكس بتاعك <span style="opacity:.6;font-weight:400">(دوس عشان تسمع)</span></div>
+      <div id="hornChips"></div>
+    </div>
+    <button class="btn" id="startBtn">يلا بينا! 🚐</button>
+    <div style="margin-top:14px; opacity:.7" id="bestStart"></div>
+  </div>
+
+  <div class="overlay hidden" id="pauseScreen">
+    <h1>استراحة ☕</h1>
+    <div style="height:20px"></div>
+    <button class="btn" id="resumeBtn">كمّل</button>
+  </div>
+
+  <div class="overlay hidden" id="jailScreen">
+    <h1>اتقفشت! 🚔</h1>
+    <div id="jailReason" style="opacity:.85"></div>
+    <svg id="jailArt" viewBox="0 0 300 210" xmlns="http://www.w3.org/2000/svg">
+        <rect width="300" height="210" fill="#4b4f59"/>
+        <g stroke="#3e424b" stroke-width="2">
+          <path d="M0 30H300M0 60H300M0 90H300M0 120H300M0 150H300"/>
+          <path d="M40 0V30M120 0V30M200 0V30M280 0V30M80 30V60M160 30V60M240 30V60M40 60V90M120 60V90M200 60V90M280 60V90M80 90V120M160 90V120M240 90V120M40 120V150M120 120V150M200 120V150M280 120V150"/>
+        </g>
+        <rect x="205" y="22" width="56" height="40" rx="4" fill="#1b2a4a"/>
+        <circle cx="244" cy="36" r="8" fill="#f5f0c8"/>
+        <circle cx="240" cy="33" r="8" fill="#1b2a4a"/>
+        <g fill="#2b2f36"><rect x="216" y="22" width="5" height="40"/><rect x="230" y="22" width="5" height="40"/><rect x="244" y="22" width="5" height="40"/></g>
+        <rect x="0" y="160" width="300" height="50" fill="#35383f"/>
+        <rect x="70" y="140" width="150" height="16" rx="3" fill="#7a5230"/>
+        <rect x="80" y="156" width="8" height="20" fill="#5e3c1d"/><rect x="202" y="156" width="8" height="20" fill="#5e3c1d"/>
+        <!-- the arrested driver -->
+        <ellipse cx="146" cy="184" rx="44" ry="6" fill="rgba(0,0,0,.3)"/>
+        <path d="M118 96 Q146 86 174 96 L182 150 L110 150 Z" fill="#f1ede2"/>
+        <path d="M112 146 L180 146 L186 178 L106 178 Z" fill="#e6e1d4"/>
+        <ellipse cx="118" cy="180" rx="9" ry="4" fill="#3a2a1e"/><ellipse cx="174" cy="180" rx="9" ry="4" fill="#3a2a1e"/>
+        <path d="M120 104 Q108 128 128 140" stroke="#f1ede2" stroke-width="9" fill="none" stroke-linecap="round"/>
+        <path d="M172 104 Q184 128 164 140" stroke="#f1ede2" stroke-width="9" fill="none" stroke-linecap="round"/>
+        <circle cx="134" cy="140" r="6" fill="#c98f5f"/><circle cx="158" cy="140" r="6" fill="#c98f5f"/>
+        <rect x="140" y="80" width="12" height="12" fill="#c98f5f"/>
+        <circle cx="146" cy="68" r="19" fill="#c98f5f"/>
+        <path d="M127 64 Q130 46 146 47 Q163 46 165 64 Q158 54 146 55 Q134 54 127 64Z" fill="#1d1510"/>
+        <path d="M134 66 L141 64 M151 64 L158 66" stroke="#1d1510" stroke-width="2.4" stroke-linecap="round"/>
+        <circle cx="139" cy="70" r="1.8" fill="#1d1510"/><circle cx="153" cy="70" r="1.8" fill="#1d1510"/>
+        <path d="M136 78 Q146 73 156 78" stroke="#1d1510" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+        <path d="M139 83 Q146 79 153 83" stroke="#6b3b2a" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+        <path d="M157 73 q2 5 0 7" stroke="#8ecae6" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <!-- bars -->
+        <g fill="#8d939c">
+          <rect x="18" y="0" width="7" height="210"/><rect x="54" y="0" width="7" height="210"/><rect x="90" y="0" width="7" height="210"/>
+          <rect x="126" y="0" width="7" height="210"/><rect x="162" y="0" width="7" height="210"/><rect x="198" y="0" width="7" height="210"/>
+          <rect x="234" y="0" width="7" height="210"/><rect x="270" y="0" width="7" height="210"/>
+          <rect x="0" y="10" width="300" height="8"/><rect x="0" y="188" width="300" height="8"/>
+        </g>
+        <g fill="rgba(255,255,255,.35)">
+          <rect x="19" y="0" width="2" height="210"/><rect x="55" y="0" width="2" height="210"/><rect x="91" y="0" width="2" height="210"/>
+          <rect x="127" y="0" width="2" height="210"/><rect x="163" y="0" width="2" height="210"/><rect x="199" y="0" width="2" height="210"/>
+          <rect x="235" y="0" width="2" height="210"/><rect x="271" y="0" width="2" height="210"/>
+        </g>
+        <rect x="236" y="96" width="14" height="22" rx="3" fill="#c9a227"/><circle cx="243" cy="94" r="7" fill="none" stroke="#c9a227" stroke-width="3"/>
+      </svg>
+    <div id="jailStats"></div>
+    <button class="btn" id="jailRetryBtn">وردية جديدة 🔁</button>
+  </div>
+
+  <div class="overlay hidden" id="overScreen">
+    <h1>الوردية خلصت</h1>
+    <div id="reason"></div>
+    <div class="stats">
+      <span class="big" id="finalMoney">0 ج</span>
+      <span id="newBest" class="new"></span>
+      <div id="finalLines"></div>
+    </div>
+    <button class="btn" id="retryBtn">وردية جديدة 🔁</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const cvs = document.getElementById('c'), ctx = cvs.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+  };
+  let best = store.get('mbr_best', 0);
+
+  // ---------- route ----------
+  const STATIONS = [
+    { en: 'Ramses', ar: 'رمسيس', color: '#ff6b6b' },
+    { en: 'Tahrir', ar: 'التحرير', color: '#ffb02e' },
+    { en: 'Dokki', ar: 'الدقي', color: '#3ddc84' },
+    { en: 'Giza', ar: 'الجيزة', color: '#4da3ff' },
+    { en: 'Maadi', ar: 'المعادي', color: '#c77dff' },
+  ];
+  const FARE = 7, SEATS = 14, SHIFT = 150;
+  // كلام مكروباصات
+  const SAY = {
+    drop: ['على جنب يا اسطى!', 'هنا يا اسطى الله يخليك', 'نزّلني هنا يا معلم', 'اللي نازل ينزل!', 'على اليمين يا باشا'],
+    board: ['اركب يا باشا.. فيه مكان ورا', 'وسّع يا كابتن', 'اتفضّل يا حاج', 'خش جوه شوية يا جماعة', 'اتفضّلي يا أبلة.. فيه كرسي'],
+    exact: ['الأجرة مظبوطة 👌', 'تمام كده.. مظبوطة', 'معايا فكة متقلقش'],
+    right: ['تسلم إيدك يا اسطى', 'الله ينوّر يا معلم', 'خلّي الباقي عشانك', 'حبيبي يا اسطى'],
+    tooMuch: ['اديت زيادة يا اسطى!', 'إيه الكرم ده يا عم!', 'ده كتير أوي!'],
+    tooLittle: ['الباقي ناقص يا اسطى!!', 'فين باقي الفلوس يا عم؟!', 'انت هتاكل الفكة؟!'],
+    slow: ['فين الباقي يا عم؟!', 'يا اسطى الباقي!!', 'انت ناسي الباقي؟!'],
+    missed: ['إيه يا اسطى! عديت المحطة!', 'وقّف يا عم! محطتي فاتت!', 'انت رايح فين بينا؟!'],
+    full: ['مفيش مكان! العربية كاملة', 'كامل كامل يا جماعة!', 'استنوا اللي بعدي!'],
+    crash: ['خبطنا يا اسطى!!', 'حاسب يا عم!!', 'يا ساتر يا رب!', 'إيه السواقة دي!', 'يا نهار أبيض!', 'العربية اتبهدلت!', 'انت سايق ولا بتلعب؟!'],
+    hitPed: ['حاسب يا اسطى! خبطت الراجل!', 'يا نهار أبيض! حد يلحقه!', 'وقّف وقّف! خبطت واحد!', 'إنت مش شايف قدامك يا عم؟!'],
+  };
+  const say = k => pick(SAY[k]);
+  const ltr = v => '\u2066' + v + '\u2069'; // keep +/- numbers readable inside Arabic text
+
+  // ---------- layout ----------
+  let W, H, DPR, roadX, roadW, laneW, busW, busH, busY, bldW, figScale = 1, animT = 0;
+  const CURB = 7;
+  function resize() {
+    const r = cvs.getBoundingClientRect();
+    DPR = Math.min(window.devicePixelRatio || 1, 3);
+    W = r.width; H = r.height;
+    cvs.width = W * DPR; cvs.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    roadW = Math.min(W * 0.6, 360);
+    roadX = (W - roadW) / 2;
+    laneW = roadW / 3;
+    const swW = Math.max(36, Math.min(66, roadX * 0.64));
+    bldW = Math.max(0, roadX - swW);
+    figScale = Math.max(0.9, Math.min(1.4, laneW / 70));
+    busW = laneW * 0.66; busH = busW * 2.05;
+    busY = H * 0.66 - busH / 2;
+    if (typeof buildTextures === 'function') buildTextures();
+  }
+  window.addEventListener('resize', resize);
+  const laneX = i => roadX + laneW * (i + 0.5);
+
+  // ---------- audio ----------
+  let actx = null;
+  function initAudio() { if (!actx) try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch {} }
+  function tone(f, d, type = 'square', v = 0.06, slide = 0) {
+    if (!actx) return;
+    try {
+      const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime;
+      o.type = type; o.frequency.setValueAtTime(f, t);
+      if (slide) o.frequency.linearRampToValueAtTime(f + slide, t + d);
+      g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + d);
+    } catch {}
+  }
+  // ---------- Egyptian microbus musical horns ----------
+  // notes: [semitones from base, duration] ; null = rest ; [s, d, glideTo] = slide
+  const VOICES = {
+    horn:  { ratios: [1, 1.26],        types: ['sawtooth', 'square'],   cutoff: 3200, drive: 9 },   // dual-tone car horn
+    air:   { ratios: [1, 1.26, 1.5],   types: ['sawtooth', 'sawtooth', 'sawtooth'], cutoff: 1800, drive: 14 }, // truck air horn
+    music: { ratios: [1, 2.004],       types: ['square', 'sawtooth'],   cutoff: 4200, drive: 6 },   // bright musical horn
+    siren: { ratios: [1, 1.5],         types: ['sawtooth', 'triangle'], cutoff: 3000, drive: 8 },
+  };
+  const HORNS = [
+    { id: 'classic', name: 'Classic', ar: 'تيت تيت تيييت', voice: 'horn', base: 392,
+      notes: [[0, .1], [null, .05], [0, .1], [null, .05], [7, .38]] },
+    { id: 'arp', name: 'Rising', ar: 'طالع', voice: 'music', base: 523,
+      notes: [[0, .09], [4, .09], [7, .09], [12, .32]] },
+    { id: 'hijaz', name: 'Hijaz Trill', ar: 'حجاز', voice: 'music', base: 440,
+      notes: [[12, .07], [13, .07], [12, .07], [10, .07], [8, .07], [7, .07], [5, .07], [4, .07], [1, .09], [0, .34]] },
+    { id: 'zaffa', name: 'Zaffa', ar: 'زفة', voice: 'horn', base: 392,
+      notes: [[0, .08], [null, .04], [0, .08], [null, .1], [0, .08], [5, .08], [7, .08], [null, .05], [7, .08], [12, .3]] },
+    { id: 'air', name: 'Air Horn', ar: 'كلاكس تريلا', voice: 'air', base: 147,
+      notes: [[0, .2], [null, .07], [0, .55, -1]] },
+    { id: 'siren', name: 'Siren Warble', ar: 'سرينة', voice: 'siren', base: 520,
+      notes: [[0, .16, 7], [7, .16, 0], [0, .16, 7], [7, .22, 0]] },
+    { id: 'shaabi', name: 'Shaabi', ar: 'شعبي', voice: 'music', base: 440,
+      notes: [[0, .1], [1, .1], [4, .1], [5, .1], [7, .2], [5, .08], [4, .08], [1, .08], [0, .28]] },
+    { id: 'tease', name: 'Taxi Tease', ar: 'معاكسة', voice: 'horn', base: 440,
+      notes: [[7, .09], [12, .09], [7, .09], [12, .09], [null, .06], [0, .3]] },
+    { id: 'question', name: 'Call & Answer', ar: 'سؤال وجواب', voice: 'music', base: 392,
+      notes: [[0, .1], [5, .1], [7, .22], [null, .1], [7, .1], [5, .1], [0, .26]] },
+    { id: 'duck', name: 'Sabaya Squeak', ar: 'زمارة', voice: 'siren', base: 700,
+      notes: [[0, .07, 5], [null, .04], [0, .07, 5], [null, .04], [5, .25, -7]] },
+  ];
+  let hornChoice = store.get('mbr_horn', 'mix'), hornIdx = 0;
+  function distCurve(k) { const n = 512, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; c[i] = (1 + k) * x / (1 + k * Math.abs(x)); } return c; }
+  // long tunes that a HELD horn flows into after its opening jingle (original melodies, loop while held)
+  const LONG_TUNES = {
+    tarab:  [[0, .16], [1, .16], [4, .32], [5, .16], [4, .16], [1, .16], [0, .32], [null, .06], [7, .16], [8, .16], [7, .16], [5, .16], [4, .32], [1, .16], [0, .48], [null, .1]],
+    zaffa:  [[0, .1], [0, .1], [null, .05], [0, .1], [5, .1], [7, .2], [5, .1], [4, .1], [2, .2], [null, .05], [0, .1], [0, .1], [null, .05], [0, .1], [7, .1], [12, .32], [null, .12]],
+    shaabi: [[7, .12], [8, .12], [7, .12], [5, .12], [4, .24], [5, .12], [4, .12], [1, .12], [0, .36], [null, .06], [0, .12], [1, .12], [4, .12], [5, .12], [7, .36], [null, .08]],
+    siren:  [[0, .38, 7], [7, .38, 0]],
+    blast:  [[0, .9], [null, .05], [0, .45], [null, .05]],
+  };
+  const TAIL_FOR = { classic: 'zaffa', zaffa: 'zaffa', tease: 'zaffa', arp: 'shaabi', hijaz: 'tarab', shaabi: 'shaabi', question: 'tarab', air: 'blast', siren: 'siren', duck: 'siren' };
+  const jingleLen = h => h.notes.reduce((a, n) => a + (n ? n[1] : 0), 0);
+
+  function resumeAudio() {
+    try { if (actx.state === 'suspended' && actx.resume && !(actx instanceof (window.OfflineAudioContext || function(){}))) actx.resume().catch(() => {}); } catch {}
+  }
+  function hornChain(h) {
+    const v = VOICES[h.voice];
+    const shaper = actx.createWaveShaper(); shaper.curve = distCurve(v.drive); shaper.oversample = '2x';
+    const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = v.cutoff; lp.Q.value = 2;
+    const body = actx.createBiquadFilter(); body.type = 'peaking'; body.frequency.value = 900; body.gain.value = 6; body.Q.value = 1;
+    const master = actx.createGain(); master.gain.value = 0.13;
+    shaper.connect(lp); lp.connect(body); body.connect(master); master.connect(actx.destination);
+    const lfo = actx.createOscillator(), lfoGain = actx.createGain();
+    lfo.frequency.value = 6.5; lfoGain.gain.value = 1; lfo.connect(lfoGain);
+    return { v, shaper, master, lfo, lfoGain };
+  }
+  function scheduleNote(ch, h, n, t) {
+    const [semi, dur, glide] = n;
+    if (semi === null) return dur;
+    const v = ch.v, f = h.base * Math.pow(2, semi / 12);
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.5, t + 0.012);
+    g.gain.setValueAtTime(0.5, t + dur - 0.025);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    g.connect(ch.shaper);
+    v.ratios.forEach((r, i) => {
+      const o = actx.createOscillator(); o.type = v.types[i];
+      o.frequency.setValueAtTime(f * r, t);
+      if (glide !== undefined) o.frequency.linearRampToValueAtTime(h.base * Math.pow(2, glide / 12) * r, t + dur);
+      const vib = actx.createGain(); vib.gain.value = f * r * 0.006; ch.lfoGain.connect(vib); vib.connect(o.frequency);
+      o.connect(g); o.start(t); o.stop(t + dur + 0.02);
+    });
+    return dur;
+  }
+  // one-shot jingle (used for previews on the start screen)
+  function playHorn(h) {
+    const total = jingleLen(h);
+    if (!actx) return total;
+    try {
+      resumeAudio();
+      const ch = hornChain(h);
+      let t = actx.currentTime + 0.01; const t0 = t;
+      for (const n of h.notes) t += scheduleNote(ch, h, n, t);
+      ch.lfo.start(t0); ch.lfo.stop(t + 0.05);
+      setTimeout(() => { try { ch.master.disconnect(); } catch {} }, (t - t0 + 0.3) * 1000);
+    } catch {}
+    return total;
+  }
+  // hold-able horn: plays the jingle, then keeps going with a long looping tune until released.
+  // A quick tap still finishes the short jingle.
+  function startHornPlayer(h) {
+    if (!actx) return null;
+    try {
+      resumeAudio();
+      const ch = hornChain(h);
+      const tail = LONG_TUNES[TAIL_FOR[h.id] || 'zaffa'];
+      const t0 = actx.currentTime + 0.01, jEnd = t0 + jingleLen(h);
+      let t = t0, idx = 0, stopAt = Infinity, dead = false;
+      ch.lfo.start(t0);
+      const kill = () => {
+        if (dead) return; dead = true; clearInterval(timer);
+        try { const n = actx.currentTime; ch.master.gain.cancelScheduledValues(n); ch.master.gain.setValueAtTime(ch.master.gain.value, n); ch.master.gain.linearRampToValueAtTime(0, n + 0.04); } catch {}
+        setTimeout(() => { try { ch.lfo.stop(); } catch {} try { ch.master.disconnect(); } catch {} }, 150);
+      };
+      const pump = () => {
+        if (dead) return;
+        const now = actx.currentTime;
+        while (t < now + 0.18 && t < stopAt) {
+          const n = idx < h.notes.length ? h.notes[idx] : tail[(idx - h.notes.length) % tail.length];
+          t += scheduleNote(ch, h, n, t); idx++;
+        }
+        if (now > stopAt + 0.2) kill();
+      };
+      const timer = setInterval(pump, 25); pump();
+      return {
+        release() {
+          if (dead || stopAt !== Infinity) return;
+          stopAt = Math.max(actx.currentTime, jEnd);
+          try { ch.master.gain.setValueAtTime(0.13, stopAt); ch.master.gain.linearRampToValueAtTime(0, stopAt + 0.06); } catch {}
+        },
+        kill,
+      };
+    } catch { return null; }
+  }
+  function nextHorn() {
+    if (hornChoice !== 'mix') return HORNS.find(h => h.id === hornChoice) || HORNS[0];
+    return HORNS[hornIdx++ % HORNS.length];
+  }
+
+  const sfx = {
+    coin() { tone(988, 0.08, 'sine', 0.07); setTimeout(() => tone(1319, 0.12, 'sine', 0.07), 70); },
+    bad() { tone(200, 0.3, 'sawtooth', 0.08, -80); },
+    crash() { tone(90, 0.45, 'sawtooth', 0.12, -40); tone(160, 0.2, 'square', 0.06); },
+    stop() { tone(660, 0.07, 'triangle', 0.07); setTimeout(() => tone(880, 0.09, 'triangle', 0.07), 80); },
+    lane() { tone(300, 0.04, 'triangle', 0.04); },
+  };
+
+  // ---------- state ----------
+  let state = 'menu';
+  let honkWaves = [], smoke = [], smokeT = 0, driveT = 0, laneWarnT = 0, speedLevel = 0;
+  // police / wanted system
+  let carsHit = 0, pedsHit = 0, wanted = 0, chase = false, chaseT = 0, health = 100, cop = null, leavingCop = null, copPending = 0, catchT = 0;
+  let bus, traffic, peds, stops, toasts, parts, riders, payQueue, payCur;
+  let money, stars, crashes, timeLeft, delivered, scroll, nextTraffic, nextStop, nextPed, stopIdx, braking, shake, elapsed, honkCd, endReason;
+
+  function reset() {
+    bus = { lane: 2, prevLane: 2, x: laneX(2), speed: 120, inv: 0, dmg: [] }; driveT = 0; laneWarnT = 0; speedLevel = 0;
+    carsHit = 0; pedsHit = 0; wanted = 0; chase = false; chaseT = 0; health = 100; cop = null; leavingCop = null; copPending = 0; catchT = 0; stopSiren(); smoke = []; smokeT = 0;
+    honkWaves = []; traffic = []; peds = []; stops = []; toasts = []; parts = []; riders = []; payQueue = []; payCur = null;
+    money = 0; stars = 5; crashes = 0; timeLeft = SHIFT; delivered = 0; scroll = 0;
+    nextTraffic = 300; nextStop = 500; nextPed = 900; stopIdx = 0; braking = false; shake = 0; elapsed = 0; honkCd = 0;
+    hidePay();
+  }
+
+  // ---------- spawning ----------
+  function spawnTraffic() {
+    const near = traffic.filter(v => v.y < 220);
+    if (near.length >= 2) return;
+    const free = [0, 1, 2].filter(l => !traffic.some(v => v.lane === l && v.y < 260));
+    if (!free.length) return;
+    const lane = pick(free);
+    const r = Math.random();
+    let v;
+    if (r < 0.45) v = { kind: 'car', w: laneW * 0.56, h: laneW * 0.95, v: rand(110, 170), color: pick(['#e8e8e8', '#2b6cb0', '#9b2c2c', '#2f855a', '#4a5568', '#d69e2e']) };
+    else if (r < 0.65) v = { kind: 'taxi', w: laneW * 0.56, h: laneW * 0.95, v: rand(120, 180), color: '#f5f5f5' };
+    else if (r < 0.87) v = { kind: 'tuk', w: laneW * 0.4, h: laneW * 0.62, v: rand(90, 140), color: pick(['#c1121f', '#1d4e89', '#2a7f3e', '#d62828']), changeT: rand(1.2, 3) };
+    else v = { kind: 'cart', w: laneW * 0.42, h: laneW * 1.15, v: rand(40, 60), color: '#8b5a2b' };
+    v.lane = lane; v.x = laneX(lane); v.y = -v.h - 20;
+    traffic.push(v);
+  }
+  function spawnStop() {
+    const st = STATIONS[stopIdx % STATIONS.length];
+    const groups = [];
+    const nGroups = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < nGroups; i++) {
+      let dest; do { dest = pick(STATIONS); } while (dest === st);
+      const n = 1 + Math.floor(Math.random() * 3);
+      groups.push({ n, dest, looks: Array.from({ length: n }, () => makeLook()) });
+    }
+    stops.push({ st, y: -260, h: busH * 2.1, groups, done: false, dwell: 0, missedChecked: false });
+    stopIdx++;
+    if (state === 'play') toast(`${st.ar}.. ${st.ar}.. ${st.ar}! 📢`, st.color, W / 2, H * 0.5);
+  }
+  function spawnPed() {
+    const fromLeft = Math.random() < 0.5;
+    peds.push({ x: fromLeft ? roadX - 8 : roadX + roadW + 8, y: -30, vx: (fromLeft ? 1 : -1) * rand(35, 55), run: false,
+      look: makeLook(), t: Math.random() * 6 });
+  }
+
+  // ---------- helpers ----------
+  function toast(text, color = '#fff', x = bus.x, y = busY - 10) { toasts.push({ text, color, x, y, life: 1.3 }); }
+  function burst(x, y, n, color, p = 1) {
+    for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, s = rand(60, 220) * p;
+      parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.4, 0.8), color, size: rand(2, 5) }); }
+  }
+  function loseStars(n, why) {
+    if (chase) return;
+    stars = Math.max(0, stars - n);
+    if (stars <= 0) endShift(why || 'الركاب زهقوا منك.. التقييم صفر!');
+  }
+  function upcomingStation() {
+    const s = stops.find(s => !s.done);
+    return s ? s.st : STATIONS[stopIdx % STATIONS.length];
+  }
+
+  // is a lane clear of the bus and other vehicles around vertical span [y, y+h]?
+  function laneClear(l, y, h, self) {
+    return !(l === bus.lane && y < busY + busH + 70 && y + h > busY - 90) &&
+      !traffic.some(o => o !== self && o.lane === l && o.y < y + h + 50 && o.y + o.h > y - 50);
+  }
+
+  // ---------- stops ----------
+  function doStop(s) {
+    s.done = true;
+    sfx.stop();
+    const off = riders.filter(r => r.dest === s.st);
+    if (off.length) {
+      riders = riders.filter(r => r.dest !== s.st);
+      const tip = off.length * 2;
+      money += tip; delivered += off.length;
+      toast(`${say('drop')}  ${ltr('+' + tip)} بقشيش`, '#3ddc84');
+      stars = Math.min(5, stars + 0.15 * off.length);
+    }
+    let full = false;
+    for (const g of s.groups) {
+      if (riders.length + g.n > SEATS) { full = true; continue; }
+      for (let i = 0; i < g.n; i++) riders.push({ dest: g.dest });
+      g.boarded = true;
+      const total = g.n * FARE;
+      const bills = [5, 10, 20, 50, 100, 200].filter(b => b >= total);
+      let paid = Math.random() < 0.2 ? total : (Math.random() < 0.6 ? bills[0] : pick(bills.slice(0, 3)));
+      if (paid === total && Math.random() < 0.5) paid = bills.find(b => b > total) || paid;
+      payQueue.push({ n: g.n, total, paid, dest: g.dest });
+    }
+    if (full) toast(say('full'), '#ffb02e', bus.x, busY - 40);
+    else if (s.groups.some(g => g.boarded)) toast(say('board'), '#ffffff', bus.x, busY - 44);
+  }
+  function passStop(s) {
+    s.missedChecked = true;
+    if (!s.done) {
+      s.done = true;
+      const missed = riders.filter(r => r.dest === s.st);
+      if (missed.length) {
+        riders = riders.filter(r => r.dest !== s.st);
+        toast(`${say('missed')} (${missed.length} 😡)`, '#ff6b6b');
+        sfx.bad();
+        loseStars(0.5 * missed.length, 'ركاب كتير فاتتهم محطتهم.. والتقييم وصل صفر!');
+      }
+    }
+  }
+
+  // ---------- payment ----------
+  function showNextPay() {
+    if (payCur || !payQueue.length || state !== 'play') return;
+    const p = payQueue.shift();
+    if (p.paid === p.total) {
+      money += p.total; sfx.coin();
+      toast(`${say('exact')} ${ltr('+' + p.total)}`, '#ffd84d', bus.x, busY - 30);
+      return;
+    }
+    const correct = p.paid - p.total;
+    const opts = new Set([correct]);
+    const deltas = [1, 2, 3, 5, 10, -1, -2, -3, -5, -10];
+    while (opts.size < 3) { const o = correct + pick(deltas); if (o >= 0) opts.add(o); }
+    const arr = [...opts].sort(() => Math.random() - 0.5);
+    payCur = { ...p, correct, t: 5, max: 5 };
+    const who = p.n === 1 ? 'واحد' : p.n === 2 ? 'اتنين' : 'تلاتة';
+    $('payQ').innerHTML = `"${who} <b style="color:${p.dest.color}">${p.dest.ar}</b> يا اسطى" · الأجرة <b>${p.total}</b> ج<br>ادّوك <span class="bill">${p.paid} ج</span> · الباقي كام؟`;
+    const box = $('payOpts'); box.innerHTML = '';
+    arr.forEach(v => {
+      const b = document.createElement('button'); b.textContent = v;
+      b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); answer(v); });
+      box.appendChild(b);
+    });
+    $('pay').style.display = 'block';
+  }
+  function answer(v) {
+    if (!payCur) return;
+    const p = payCur;
+    money += p.total;
+    if (v === p.correct) {
+      const tip = Math.random() < 0.5 ? 1 : 2;
+      money += tip; sfx.coin();
+      stars = Math.min(5, stars + 0.1);
+      toast(`${say('right')}  ${ltr('+' + tip)} بقشيش`, '#3ddc84', bus.x, busY - 30);
+    } else {
+      sfx.bad();
+      if (v > p.correct) { money -= (v - p.correct); toast(`${say('tooMuch')} ${ltr('-' + (v - p.correct))} ج`, '#ff6b6b', bus.x, busY - 30); }
+      else toast(say('tooLittle'), '#ff6b6b', bus.x, busY - 30);
+      loseStars(0.5, 'الركاب مبقوش مآمنين لك في الباقي!');
+    }
+    hidePay();
+  }
+  function timeoutPay() {
+    sfx.bad(); money += payCur.total;
+    toast(say('slow'), '#ff6b6b', bus.x, busY - 30);
+    loseStars(0.5, 'الركاب مبقوش مآمنين لك في الباقي!');
+    hidePay();
+  }
+  function hidePay() { payCur = null; $('pay').style.display = 'none'; }
+
+  // ---------- input ----------
+  function changeLane(d) {
+    if (state !== 'play') return;
+    if (bus.speed < 25) { // a stopped microbus can't swerve
+      if (laneWarnT <= 0) { toast('لازم تتحرك الأول يا اسطى! 🚐', '#ffb02e', bus.x, busY - 26); laneWarnT = 1.2; }
+      return;
+    }
+    const nl = Math.max(0, Math.min(2, bus.lane + d));
+    if (nl !== bus.lane) { bus.prevLane = bus.lane; bus.lane = nl; sfx.lane(); }
+  }
+  let hornPlayer = null, hornHeld = false, hornHoldT = 0, hornEffT = 0, hornLongShown = false, hornCapped = false;
+  const HORN_MAX = 3.5; // a held horn plays at most this long; release to reset
+  // clears the road ahead (applied on press, then repeatedly while the horn is held)
+  function honkEffects() {
+    honkWaves.push({ r: busW * 0.4, life: 0.6 });
+    const L = bus.x - busW / 2 - 16, R = bus.x + busW / 2 + 16;
+    // pedestrians ahead: if in my lane they hurry out the nearest way, if about to step in they stop and wait
+    for (const p of peds) {
+      if (p.y < busY - 560 || p.y > busY + busH) continue;
+      if (p.x > L && p.x < R) { p.vx = Math.abs(p.vx) * (p.x < bus.x ? -1 : 1); p.run = true; p.wait = false; }
+      else if ((p.vx > 0 && p.x <= L) || (p.vx < 0 && p.x >= R)) { p.wait = true; p.run = false; }
+    }
+    // vehicles ahead in my lane: pull over to a free lane, or speed up if boxed in
+    for (const v of traffic) {
+      if (Math.abs(v.x - bus.x) > (v.w + busW) / 2) continue;
+      if (v.y + v.h > busY + 10 || v.y < busY - 560) continue;
+      const opts = [v.lane - 1, v.lane + 1].filter(l => l >= 0 && l <= 2 && laneClear(l, v.y, v.h, v));
+      if (opts.length) { v.lane = pick(opts); v.yield = 1.2; }
+      else { v.boost = 2.5; v.yield = 1.2; }
+    }
+  }
+  function honkStart() {
+    if (state !== 'play' || hornHeld) return;
+    hornHeld = true; hornHoldT = 0; hornEffT = 0.45; hornLongShown = false; hornCapped = false;
+    if (hornPlayer) hornPlayer.kill(); // a new press cuts any tail still ringing
+    const h = nextHorn();
+    hornPlayer = startHornPlayer(h);
+    toast('♪ ' + h.ar + ' ♪', '#ffd84d', bus.x, busY - 18);
+    honkEffects();
+    $('honk').classList.add('on');
+  }
+  function honkEnd() {
+    if (!hornHeld) return;
+    hornHeld = false; $('honk').classList.remove('on');
+    if (hornPlayer && !hornCapped) hornPlayer.release();
+    hornCapped = false; // released: the next press starts a fresh horn
+  }
+  function honkHoldTick(dt) {
+    if (!hornHeld || hornCapped) return;
+    hornHoldT += dt; hornEffT -= dt;
+    if (hornHoldT >= HORN_MAX) { // time's up: stop even if still held
+      hornCapped = true;
+      if (hornPlayer) hornPlayer.release();
+      $('honk').classList.remove('on');
+      return;
+    }
+    if (hornEffT <= 0) { hornEffT = 0.45; honkEffects(); }
+    if (hornHoldT > 1 && !hornLongShown) { hornLongShown = true; toast('♪♫ كلاكس طويل.. وسّع يا جدع! ♫♪', '#ffd84d', bus.x, busY - 40); }
+  }
+  cvs.addEventListener('pointerdown', e => {
+    e.preventDefault(); initAudio();
+    if (state !== 'play') return;
+    const r = cvs.getBoundingClientRect();
+    changeLane(e.clientX - r.left < W / 2 ? -1 : 1);
+  }, { passive: false });
+
+  const brakeBtn = $('brake');
+  const setBrake = on => { braking = on; brakeBtn.classList.toggle('on', on); };
+  brakeBtn.addEventListener('pointerdown', e => { e.preventDefault(); initAudio(); setBrake(true); try { brakeBtn.setPointerCapture(e.pointerId); } catch {} });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => brakeBtn.addEventListener(ev, () => setBrake(false)));
+  const honkBtn = $('honk');
+  honkBtn.addEventListener('pointerdown', e => { e.preventDefault(); initAudio(); honkStart(); try { honkBtn.setPointerCapture(e.pointerId); } catch {} });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => honkBtn.addEventListener(ev, honkEnd));
+  honkBtn.addEventListener('contextmenu', e => e.preventDefault()); // long-press menu on mobile
+
+  window.addEventListener('keydown', e => {
+    if (e.repeat && e.code !== 'Space') return;
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') changeLane(-1);
+    else if (e.code === 'ArrowRight' || e.code === 'KeyD') changeLane(1);
+    else if (e.code === 'Space' || e.code === 'ArrowDown' || e.code === 'KeyS') { e.preventDefault(); setBrake(true); }
+    else if (e.code === 'KeyH' || e.code === 'ArrowUp') honkStart();
+    else if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
+    else if (payCur && /^Digit[1-3]$/.test(e.code)) { const b = $('payOpts').children[+e.code.slice(5) - 1]; if (b) answer(+b.textContent); }
+    else if (e.code === 'Enter' && (state === 'menu' || state === 'over')) start();
+  });
+  window.addEventListener('keyup', e => {
+    if (e.code === 'Space' || e.code === 'ArrowDown' || e.code === 'KeyS') setBrake(false);
+    if (e.code === 'KeyH' || e.code === 'ArrowUp') honkEnd();
+  });
+
+  // ---------- update ----------
+  function rectHit(ax, ay, aw, ah, bx, by, bw, bh) { return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by; }
+
+  function update(realDt) {
+    // payment prompt timer (real time) and slow-mo world
+    if (payCur) { payCur.t -= realDt; $('payTimer').style.transform = `scaleX(${Math.max(0, payCur.t / payCur.max)})`; if (payCur.t <= 0) timeoutPay(); }
+    else showNextPay();
+    const dt = payCur ? realDt * 0.3 : realDt;
+
+    elapsed += dt; if (!chase) timeLeft -= realDt; else chaseT += realDt;
+    honkHoldTick(realDt);
+    if (!chase && timeLeft <= 0) { timeLeft = 0; return endShift('الوردية خلصت.. عاش يا اسطى! 💪'); }
+    honkCd -= realDt;
+    bus.inv = Math.max(0, bus.inv - dt);
+
+    if (bus.speed > 60) driveT += dt; // only time spent actually driving counts
+    laneWarnT -= realDt;
+    const maxS = (220 + Math.min(300, driveT * 5)) * (0.45 + 0.55 * health / 100); // faster the longer you drive; damage slows you
+    const lvl = Math.floor(driveT / 12);
+    if (lvl > speedLevel) { speedLevel = lvl; toast('🔥 السرعة زادت! دوس يا اسطى', '#ff9f1c', W / 2, H * 0.42); }
+    if (braking) bus.speed = Math.max(0, bus.speed - 520 * dt);
+    else bus.speed = Math.min(maxS, bus.speed + (170 + driveT * 2) * dt);
+    bus.x += (laneX(bus.lane) - bus.x) * Math.min(1, dt * 12);
+
+    const move = bus.speed * dt;
+    scroll += move;
+
+    // spawning (by distance)
+    nextTraffic -= move; if (nextTraffic <= 0) { spawnTraffic(); nextTraffic = rand(150, 300) * Math.max(0.55, 1 - elapsed / 300) * (chase ? 1.9 : 1); }
+    if (!chase) { nextStop -= move; if (nextStop <= 0) { spawnStop(); nextStop = rand(1400, 1900); } }
+    nextPed -= move; if (nextPed <= 0) { spawnPed(); nextPed = rand(700, 1400) * (chase ? 2.2 : 1); }
+
+    // traffic
+    const busTop = busY, busBot = busY + busH;
+    for (const v of traffic) {
+      if (v.noHit > 0) v.noHit -= dt;
+      let vs = v.v;
+      if (v.boost > 0) { v.boost -= dt; vs += v.kind === 'cart' ? 40 : 110; }
+      if (v.yield > 0) v.yield -= dt;
+      const sameLaneAsBus = Math.abs(v.x - bus.x) < (v.w + busW) / 2 + 4;
+      // vehicles BEHIND the bus never rear-end it: they brake and queue, then overtake
+      if (sameLaneAsBus && v.y > busTop) {
+        const gap = v.y - busBot;
+        if (gap < 160) {
+          vs = Math.min(vs, gap < 50 ? bus.speed - 60 : bus.speed);
+          v.blockedT = (v.blockedT || 0) + dt;
+          if (v.blockedT > 0.9 && v.kind !== 'cart') {
+            const opts = [v.lane - 1, v.lane + 1].filter(l => l >= 0 && l <= 2 && laneClear(l, v.y, v.h, v));
+            if (opts.length) { v.lane = pick(opts); v.blockedT = 0; }
+          }
+        }
+      } else v.blockedT = 0;
+      // vehicles also keep distance from the NPC ahead of them
+      for (const o of traffic) {
+        if (o !== v && o.lane === v.lane && o.y < v.y && v.y - (o.y + o.h) < 30) vs = Math.min(vs, o.v);
+      }
+      v.y += (bus.speed - vs) * dt;
+      if (v.kind === 'tuk') {
+        v.changeT -= dt;
+        if (v.changeT <= 0) {
+          // tuk-tuks only swerve into lanes where there's room, never into the bus
+          const opts = [v.lane - 1, v.lane + 1].filter(l => l >= 0 && l <= 2 && laneClear(l, v.y, v.h, v));
+          if (opts.length) v.lane = pick(opts);
+          v.changeT = rand(1.5, 3.5);
+        }
+      }
+      v.x += (laneX(v.lane) - v.x) * Math.min(1, dt * 4);
+    }
+    traffic = traffic.filter(v => v.y < H + 100 && v.y > -500);
+
+    // pedestrians
+    for (const p of peds) {
+      p.y += bus.speed * dt; p.t += dt * 8;
+      if (p.wait && p.y > busY + busH + 20) p.wait = false; // bus has passed: carry on crossing
+      if (!p.wait) p.x += p.vx * (p.run ? 3.4 : 1) * dt;
+    }
+    peds = peds.filter(p => p.y < H + 40 && p.x > roadX - 40 && p.x < roadX + roadW + 40);
+
+    // stops
+    for (const s of stops) {
+      s.y += move;
+      if (!s.done) {
+        const cy = busY + busH / 2, inZone = cy >= s.y + 10 && cy <= s.y + s.h - 10;
+        if (inZone && bus.lane === 2 && Math.abs(bus.x - laneX(2)) < 8 && bus.speed < 45) {
+          s.dwell += dt;
+          if (s.dwell > 0.45) doStop(s);
+        } else s.dwell = Math.max(0, s.dwell - dt);
+      }
+      if (!s.missedChecked && s.y > busY + busH) passStop(s);
+    }
+    stops = stops.filter(s => s.y < H + 50);
+
+    // collisions
+    // slightly forgiving hitbox
+    const bx = bus.x - busW / 2 + 5, by = busY + 6, bw = busW - 10, bh = busH - 12;
+    if (bus.inv <= 0) {
+      for (const v of traffic) {
+        if (v.noHit > 0) continue; // just hit this one: no instant second crash
+        if (rectHit(bx, by, bw, bh, v.x - v.w / 2, v.y, v.w, v.h)) {
+          const ow = Math.min(bx + bw, v.x + v.w / 2) - Math.max(bx, v.x - v.w / 2);
+          const oh = Math.min(by + bh, v.y + v.h) - Math.max(by, v.y);
+          const ox = (Math.max(bx, v.x - v.w / 2) + Math.min(bx + bw, v.x + v.w / 2)) / 2;
+          const oy = (Math.max(by, v.y) + Math.min(by + bh, v.y + v.h)) / 2;
+          const sideHit = ow < oh * 0.8;
+          (v.dmg = v.dmg || []).push({ rx: (ox - (v.x - v.w / 2)) / v.w, ry: (oy - v.y) / v.h, seed: Math.random() * 1e6 });
+          v.yield = 4; // hazards on
+          crash(ox, oy, 'العربية دخلت الورشة من كتر الخبط! 🔧');
+          v.noHit = 3;
+          if (sideHit) bus.lane = bus.prevLane; // bounce back to the lane you came from
+          // separate the two vehicles and send the other one on its way
+          if (v.y + v.h / 2 < busY + busH / 2) v.y = Math.min(v.y, busY - v.h - 10);
+          else v.y = Math.max(v.y, busY + busH + 10);
+          v.v = Math.max(v.v, 150) + 70;
+          const opts = [v.lane - 1, v.lane + 1].filter(l => l >= 0 && l <= 2 && l !== bus.lane && laneClear(l, v.y, v.h, v));
+          if (opts.length) v.lane = pick(opts);
+          break;
+        }
+      }
+      for (const p of peds) {
+        if (bus.inv > 0 || state !== 'play') break;
+        if (rectHit(bx, by, bw, bh, p.x - 6, p.y - 22 * figScale, 12, 22 * figScale)) { crash(p.x, p.y - 10, 'خبطت ناس كتير.. الوردية اتلغت!', true); p.run = true; p.x += p.vx > 0 ? 30 : -30; break; }
+      }
+    }
+
+    // fx
+    for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.94; p.vy *= 0.94; p.life -= dt; }
+    parts = parts.filter(p => p.life > 0);
+    for (const w of honkWaves) { w.r += 520 * realDt; w.life -= realDt; }
+    honkWaves = honkWaves.filter(w => w.life > 0);
+    for (const t of toasts) { t.y -= 40 * realDt; t.life -= realDt; }
+    toasts = toasts.filter(t => t.life > 0);
+    shake = Math.max(0, shake - realDt * 30);
+
+    // engine smoke after the 2nd crash (steam after the 1st)
+    if (health < 90) {
+      smokeT -= dt;
+      if (smokeT <= 0) {
+        smokeT = health < 55 ? 0.06 : 0.22;
+        smoke.push({ x: bus.x + rand(-busW * 0.25, busW * 0.25), y: busY + busH * 0.1, vx: rand(-14, 14), r: rand(3, 5), life: health < 55 ? 1.3 : 0.7, max: health < 55 ? 1.3 : 0.7, dark: health < 55 });
+      }
+    }
+    for (const m of smoke) { m.y += bus.speed * dt * 0.85 - 12 * dt; m.x += m.vx * dt; m.r += 16 * dt; m.life -= dt; }
+    smoke = smoke.filter(m => m.life > 0);
+
+    updateCop(dt);
+    if (state !== 'play') return;
+    updateHud();
+  }
+  function crash(x, y, why, ped) {
+    crashes++;
+    // dent the microbus where it was hit
+    const rx = Math.max(0, Math.min(1, (x - (bus.x - busW / 2)) / busW)), ry = Math.max(0, Math.min(1, (y - busY) / busH));
+    bus.dmg.push({ rx, ry, seed: Math.random() * 1e6, small: !!ped });
+    sfx.crash(); burst(x, y, 26, '#ffd84d', 1.2); burst(x, y, 14, '#aaa', 0.8);
+    burst(x, y, 10, '#cfe8ff', 0.9); // glass
+    const line = say(ped ? 'hitPed' : 'crash');
+    if (chase) {
+      // final chase: hits don't count, they only wreck the microbus and slow it down
+      health = Math.max(0, health - (ped ? 12 : 22));
+      bus.speed *= 0.35; bus.inv = 1.0; shake = 10;
+      toast(`${line}  ❤️ ${ltr(Math.round(health) + '%')}`, '#ff6b6b');
+      return;
+    }
+    bus.speed = 0; bus.inv = 1.6; shake = 14;
+    health = Math.max(35, health - 12);
+    if (ped) pedsHit++; else carsHit++;
+    wanted = Math.min(3, carsHit + pedsHit);
+    toast(`${line} ${'🚨'.repeat(wanted)}`, '#ff6b6b');
+    if (wanted === 1) {
+      spawnCop('bike');
+      setTimeout(() => toast('🚓 موتوسيكل المرور طلع وراك!', '#8ecaff', W / 2, H * 0.4), 500);
+    } else if (wanted === 2) {
+      if (cop) { cop.leaving = true; leavingCop = cop; cop = null; } // the bike backs off...
+      copPending = 1.2;            // ...and the police car takes over
+      setTimeout(() => toast('🚔 البوكس طالع وراك!', '#8ecaff', W / 2, H * 0.4), 500);
+    } else if (wanted === 3) startChase();
+  }
+
+  function startChase() {
+    chase = true; chaseT = 0;
+    payQueue = []; hidePay();
+    stops = []; // the road opens up: no more stops, thinner traffic
+    if (!cop || cop.kind !== 'car') { if (cop) { cop.leaving = true; leavingCop = cop; cop = null; } if (copPending <= 0) copPending = 0.3; }
+    shake = 8;
+    toast('🚨 مطاردة! اهرب يا اسطى! 🚨', '#ff4d4d', W / 2, H * 0.42);
+    setTimeout(() => toast('الطريق فضي.. دوس! متهدّيش!', '#ffd84d', W / 2, H * 0.48), 900);
+  }
+
+  // ======================= police =======================
+  let siren = null;
+  function startSiren(kind) {
+    stopSiren();
+    if (!actx) return;
+    try {
+      const o = actx.createOscillator(), lfo = actx.createOscillator(), depth = actx.createGain();
+      const lp = actx.createBiquadFilter(), g = actx.createGain();
+      o.type = 'sawtooth'; lp.type = 'lowpass'; lp.frequency.value = 2400;
+      o.frequency.value = kind === 'bike' ? 950 : 760;
+      lfo.type = kind === 'bike' ? 'square' : 'sine';
+      lfo.frequency.value = kind === 'bike' ? 2.6 : 0.42;
+      depth.gain.value = kind === 'bike' ? 220 : 320;
+      lfo.connect(depth); depth.connect(o.frequency);
+      g.gain.value = 0;
+      o.connect(lp); lp.connect(g); g.connect(actx.destination);
+      o.start(); lfo.start();
+      siren = { o, lfo, g };
+    } catch { siren = null; }
+  }
+  function sirenVolume(v) { if (siren) try { siren.g.gain.setTargetAtTime(v, actx.currentTime, 0.08); } catch {} }
+  function stopSiren() {
+    if (!siren) return;
+    const sn = siren; siren = null;
+    try { sn.g.gain.setTargetAtTime(0, actx.currentTime, 0.05); setTimeout(() => { try { sn.o.stop(); sn.lfo.stop(); sn.g.disconnect(); } catch {} }, 300); } catch {}
+  }
+  function spawnCop(kind) {
+    const bike = kind === 'bike';
+    cop = { kind, lane: bus.lane, x: laneX(bus.lane), y: H + (bike ? 220 : 320),
+      w: bike ? laneW * 0.26 : laneW * 0.58, h: bike ? laneW * 0.66 : laneW * 1.02, leaving: false };
+    catchT = 0;
+    startSiren(kind);
+  }
+  function updateCop(dt) {
+    if (copPending > 0) { copPending -= dt; if (copPending <= 0) spawnCop('car'); }
+    if (leavingCop) { // the bike dropping back out of the chase
+      leavingCop.y += 170 * dt;
+      leavingCop.x += (laneX(leavingCop.lane) - leavingCop.x) * Math.min(1, dt * 5);
+      if (leavingCop.y > H + 300) leavingCop = null;
+    }
+    if (!cop) { sirenVolume(0); return; }
+    const base = 220 + Math.min(300, driveT * 5); // the microbus's healthy top speed right now
+    const minY = busY + busH + 3;
+    let vp;
+    if (cop.leaving) vp = bus.speed - 170;
+    else {
+      const f = cop.kind === 'bike' ? 0.8 : chase ? Math.min(0.99, 0.95 + chaseT * 0.0015) : 0.88;
+      vp = Math.max(170, base * f);
+      if (cop.y - minY > 520) vp = Math.max(vp, bus.speed + 140); // never lose them completely
+    }
+    cop.y += (bus.speed - vp) * dt;
+    if (!cop.leaving) {
+      // follow the microbus's lane, swerving around traffic in the way
+      const blocked = l => traffic.some(v => v.lane === l && v.y + v.h > cop.y - 70 && v.y < cop.y + cop.h + 10);
+      let target = bus.lane;
+      if (blocked(target)) {
+        const alt = [0, 1, 2].filter(l => !blocked(l)).sort((a, b) => Math.abs(a - cop.lane) - Math.abs(b - cop.lane));
+        if (alt.length) target = alt[0];
+      }
+      if (target === bus.lane && cop.y < minY - 2 && cop.lane !== bus.lane) target = cop.lane; // don't cut into the bus
+      cop.lane = target;
+      cop.y = Math.max(cop.y, cop.lane === bus.lane ? minY : busY + busH * 0.35);
+      // caught? (on your back bumper / boxing you in)
+      if (cop.y <= minY + 6) {
+        catchT += dt;
+        if (catchT > 1.0) return busted();
+      } else catchT = Math.max(0, catchT - dt * 0.7);
+    }
+    cop.x += (laneX(cop.lane) - cop.x) * Math.min(1, dt * 5);
+    if (cop.leaving && cop.y > H + 300) { cop = null; if (copPending <= 0) stopSiren(); return; }
+    const gap = Math.max(0, cop.y - minY);
+    sirenVolume(cop.leaving ? 0.01 : 0.025 + 0.045 * Math.max(0, 1 - gap / 700));
+  }
+
+  function busted() {
+    if (state !== 'play') return;
+    state = 'over'; setBrake(false); honkEnd(); hidePay(); stopSiren();
+    tone(196, 0.35, 'square', 0.08); setTimeout(() => tone(185, 0.35, 'square', 0.08), 380); setTimeout(() => tone(147, 0.9, 'square', 0.09), 760);
+    shake = 12;
+    const years = 1 + carsHit * 2 + pedsHit * 7 + Math.floor(chaseT / 20);
+    const cm = Math.floor(chaseT / 60), cs = Math.floor(chaseT % 60);
+    $('jailReason').textContent = chase ? `البوليس لحقك بعد مطاردة ${cm}:${String(cs).padStart(2, '0')}` : 'البوليس لحقك وانت واقف!';
+    $('jailStats').innerHTML =
+      `🚗 عربيات خبطتها: <b>${carsHit}</b><br>` +
+      `💀 ضحايا (ناس خبطتهم): <b>${pedsHit}</b><br>` +
+      `💸 فلوس اتصادرت: <b>${money} ج</b><br>` +
+      `⚖️ الحكم: <b>${years} ${years > 10 ? 'سنة' : 'سنين'} سجن</b>`;
+    $('controls').style.display = 'none';
+    setTimeout(() => $('jailScreen').classList.remove('hidden'), 650);
+  }
+
+  let lastHud = '';
+  function updateHud() {
+    $('money').textContent = money + ' ج';
+    const full = Math.round(stars);
+    $('stars').textContent = '★'.repeat(full) + '☆'.repeat(5 - full);
+    const tt = chase ? chaseT : timeLeft;
+    const m = Math.floor(tt / 60), s = Math.floor(tt % 60);
+    $('time').textContent = `${chase ? '🚨 ' : ''}${m}:${String(s).padStart(2, '0')}`;
+    $('time').style.color = chase || timeLeft < 20 ? '#ff6b6b' : '#fff';
+    $('nextCard').style.display = chase ? 'none' : 'block'; // no stops during the chase
+    // wanted / health panel
+    const wc = $('wantedCard');
+    if (wanted > 0 || health < 100) {
+      wc.style.display = 'block';
+      wc.classList.toggle('alarm', !!cop && !cop.leaving);
+      const busting = catchT > 0.05;
+      $('wantedText').textContent = busting ? '⛔ البوليس بيقفشك!! دوس!' :
+        chase ? '🚨 مطاردة! اهرب!' : wanted === 2 ? '🚔 البوكس وراك!' : wanted === 1 ? '🚓 المرور وراك!' : '🔧 العربية متبهدلة';
+      $('hitsText').textContent = `🚗 ${carsHit}  💀 ${pedsHit}`;
+      const hf = $('healthFill'); hf.style.width = health + '%';
+      hf.style.background = health > 60 ? '#3ddc84' : health > 30 ? '#ffb02e' : '#ff4d4d';
+      const close = cop && !cop.leaving ? Math.max(0, Math.min(1, 1 - (cop.y - (busY + busH)) / 600)) : 0;
+      $('copFill').style.width = Math.round(close * 100) + '%';
+    } else wc.style.display = 'none';
+    const nx = upcomingStation();
+    const counts = STATIONS.map(st => [st, riders.filter(r => r.dest === st).length]).filter(c => c[1]);
+    const key = nx.en + '|' + counts.map(c => c[0].en + c[1]).join(',');
+    if (key !== lastHud) {
+      lastHud = key;
+      $('nextName').innerHTML = `<span class="ar" style="color:${nx.color}">${nx.ar}</span>`;
+      $('chips').innerHTML = counts.length ? counts.map(([st, n]) =>
+        `<span class="chip ${st === nx ? 'due' : ''}" style="background:${st.color}">${st.ar} ×${n}</span>`).join('') :
+        '<span style="opacity:.6;font-size:12px">العربية فاضية.. لِم ركاب من المحطات!</span>';
+    }
+    $('seats').textContent = `🪑 ${riders.length}/${SEATS} · ⚡${Math.round(bus.speed / 4)} كم/س`;
+  }
+
+  // ---------- draw ----------
+  function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  function circ(x, y, r, c) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill(); }
+  function ell(x, y, rx, ry, c, rot = 0) { ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, 6.2832); ctx.fill(); }
+  function shade(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    const f = v => Math.max(0, Math.min(255, v + amt));
+    return '#' + ((1 << 24) | (f(n >> 16) << 16) | (f((n >> 8) & 255) << 8) | f(n & 255)).toString(16).slice(1);
+  }
+  const hsh = (n, s = 0) => { const x = Math.sin(n * 12.9898 + s * 78.233) * 43758.5453; return x - Math.floor(x); };
+  const SEG = 90;
+  function forSegs(fn) {
+    const base = Math.floor(scroll / SEG), off = scroll % SEG;
+    for (let k = -2; k * SEG + off < H + SEG; k++) fn(base - k, k * SEG + off);
+  }
+
+  // ----- people -----
+  const SKINS = ['#f1c9a5', '#e3b088', '#c98f5f', '#a8704a', '#8a5a3b', '#6e4630'];
+  const HAIR = ['#14100c', '#2a1d13', '#3b2a1e', '#4a4a4a', '#6b4a2e'];
+  function makeLook(rng = Math.random) {
+    const p = a => a[Math.floor(rng() * a.length)];
+    const r = rng();
+    const kind = r < 0.3 ? 'galabeya' : r < 0.62 ? 'shirt' : r < 0.86 ? 'dress' : 'abaya';
+    const female = kind === 'dress' || kind === 'abaya';
+    let head;
+    if (female) head = rng() < 0.85 ? 'hijab' : 'hair';
+    else if (kind === 'galabeya') head = p(['taqiya', 'taqiya', 'bald', 'hair', 'scarf']);
+    else head = rng() < 0.2 ? 'cap' : 'hair';
+    const L = {
+      kind, head, skin: p(SKINS), hair: p(HAIR),
+      kid: kind !== 'abaya' && kind !== 'galabeya' && rng() < 0.14,
+      old: kind === 'galabeya' && rng() < 0.3,
+      bag: rng() < 0.35 ? p(['#7a4b2a', '#3d5a80', '#9b2226', '#d4a373', '#2f6b3a']) : null,
+    };
+    if (kind === 'galabeya') L.top = p(['#f1ede2', '#cdbb9b', '#8a9ba8', '#5d6b7a', '#7a5c43', '#9c8b72', '#4b5d4b']);
+    else if (kind === 'shirt') { L.top = p(['#e76f51', '#2a9d8f', '#e9c46a', '#3d5a80', '#f4f1de', '#9b2226', '#457b9d', '#6a994e', '#ffffff', '#222831']); L.bottom = p(['#2b3a55', '#3d405b', '#1d1d1d', '#6b705c', '#4a3f35']); }
+    else if (kind === 'dress') L.top = p(['#6d4c9c', '#2a9d8f', '#bc4749', '#3a86ff', '#6d597a', '#e07a5f', '#5e6472', '#a26769']);
+    else L.top = '#1f1f26';
+    L.scarf = female ? p(['#e9c46a', '#f4a3a3', '#264653', '#f1faee', '#8d99ae', '#b5838d', '#2a9d8f', '#e76f51', '#1f1f26', '#c9ada7']) : p(['#f1ede2', '#b23a48', '#6b705c']);
+    if (L.kind === 'abaya' && rng() < 0.5) L.scarf = '#1f1f26';
+    L.cap = p(['#c1121f', '#1d3557', '#f1faee', '#2a9d8f']);
+    return L;
+  }
+  function seeded(n) {
+    let a = (Math.floor(n) * 2654435761) >>> 0;
+    return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  const lookCache = new Map();
+  function lookFor(id) {
+    if (!lookCache.has(id)) { lookCache.set(id, makeLook(seeded(id))); if (lookCache.size > 300) lookCache.delete(lookCache.keys().next().value); }
+    return lookCache.get(id);
+  }
+
+  // front-view character, feet at (x, y)
+  function drawFigure(x, y, L, t, o = {}) {
+    const s = (L.kid ? 0.72 : 1) * figScale;
+    const h = 26 * s;
+    const sw = o.walk ? Math.sin(t) : 0;
+    const lean = o.run ? 1.5 * s * Math.sign(o.dir || 1) : 0;
+    const hipY = y - h * 0.42, shY = y - h * 0.76, headR = h * 0.125, headY = y - h * 0.87 + (L.old ? 1.2 * s : 0);
+    const long = L.kind !== 'shirt';
+    ctx.lineCap = 'round';
+    if (!o.seated) ell(x + 2 * s, y, 7 * s, 2.4 * s, 'rgba(0,0,0,.28)');
+    // legs / feet
+    if (!o.seated) {
+      if (!long) {
+        ctx.strokeStyle = L.bottom; ctx.lineWidth = 3.3 * s;
+        ctx.beginPath();
+        ctx.moveTo(x - 1.7 * s, hipY); ctx.lineTo(x - 1.9 * s + sw * 3 * s, y - 1.5 * s);
+        ctx.moveTo(x + 1.7 * s, hipY); ctx.lineTo(x + 1.9 * s - sw * 3 * s, y - 1.5 * s);
+        ctx.stroke();
+        ell(x - 2 * s + sw * 3 * s, y - 0.8 * s, 2.3 * s, 1.2 * s, '#2b2b2b');
+        ell(x + 2 * s - sw * 3 * s, y - 0.8 * s, 2.3 * s, 1.2 * s, '#2b2b2b');
+      } else {
+        ell(x - 2.2 * s + sw * 1.6 * s, y - 0.8 * s, 2.2 * s, 1.2 * s, L.kind === 'galabeya' ? '#6b4a2e' : '#2b2b2b');
+        ell(x + 2.2 * s - sw * 1.6 * s, y - 0.8 * s, 2.2 * s, 1.2 * s, L.kind === 'galabeya' ? '#6b4a2e' : '#2b2b2b');
+      }
+    }
+    const bodyBottom = o.seated ? hipY + 1 * s : (long ? y - 1.6 * s : hipY + 1.5 * s);
+    // bag behind
+    if (L.bag && !o.seated) { ctx.fillStyle = L.bag; rr(x + 4 * s, hipY - 3 * s, 4.5 * s, 6 * s, 1.5 * s); ctx.fill(); }
+    // body
+    ctx.fillStyle = L.top;
+    ctx.beginPath();
+    const topW = 4.6 * s + lean * 0, botW = long ? 5.8 * s + Math.abs(sw) * 0.8 * s : 4.2 * s;
+    ctx.moveTo(x - topW + lean, shY);
+    ctx.quadraticCurveTo(x + lean, shY - 1.6 * s, x + topW + lean, shY);
+    ctx.lineTo(x + botW, bodyBottom);
+    ctx.lineTo(x - botW, bodyBottom);
+    ctx.closePath(); ctx.fill();
+    // shading + details
+    ctx.fillStyle = 'rgba(0,0,0,.12)';
+    ctx.beginPath(); ctx.moveTo(x + lean + 0.5 * s, shY); ctx.lineTo(x + topW + lean, shY); ctx.lineTo(x + botW, bodyBottom); ctx.lineTo(x + 0.5 * s, bodyBottom); ctx.closePath(); ctx.fill();
+    if (L.kind === 'galabeya') { ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 0.8 * s; ctx.beginPath(); ctx.moveTo(x + lean, shY + 0.5 * s); ctx.lineTo(x + lean * 0.5, shY + 5 * s); ctx.stroke(); }
+    if (L.kind === 'shirt') { ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(x - 4.2 * s, hipY, 8.4 * s, 1.2 * s); }
+    // arms
+    const armCol = L.top;
+    ctx.strokeStyle = armCol; ctx.lineWidth = 2.5 * s;
+    const lx = x - topW + lean + 0.6 * s, rx = x + topW + lean - 0.6 * s, ay = shY + 1.2 * s;
+    let lhx = lx - 1.2 * s - sw * 2.2 * s, lhy = hipY + 1 * s;
+    let rhx = rx + 1.2 * s + sw * 2.2 * s, rhy = hipY + 1 * s;
+    if (o.seated) { lhx = x - 3 * s; lhy = hipY - 1 * s; rhx = x + 3 * s; rhy = hipY - 1 * s; }
+    if (o.wave) { rhx = rx + 4 * s; rhy = headY - headR - 3 * s + Math.sin(t * 1.6) * 1.8 * s; }
+    if (o.stopHand) { rhx = rx + 5 * s; rhy = shY - 1 * s; }
+    if (o.run) { lhy -= 3 * s; rhy -= 3 * s; }
+    ctx.beginPath(); ctx.moveTo(lx, ay); ctx.lineTo(lhx, lhy); ctx.moveTo(rx, ay); ctx.lineTo(rhx, rhy); ctx.stroke();
+    circ(lhx, lhy, 1.3 * s, L.skin); circ(rhx, rhy, (o.stopHand ? 1.9 : 1.3) * s, L.skin);
+    if (L.old && !o.seated) { ctx.strokeStyle = '#6b4a2e'; ctx.lineWidth = 1.3 * s; ctx.beginPath(); ctx.moveTo(lhx, lhy); ctx.lineTo(lhx - 1 * s, y); ctx.stroke(); }
+    // head
+    const hx = x + lean * 1.2;
+    if (L.head === 'hijab') {
+      circ(hx, headY + 0.4 * s, headR + 1.6 * s, L.scarf);
+      ctx.fillStyle = L.scarf; ctx.beginPath(); ctx.moveTo(hx - headR - 1.6 * s, headY + 0.5 * s); ctx.lineTo(hx + headR + 1.6 * s, headY + 0.5 * s); ctx.lineTo(hx + topW, shY + 2.5 * s); ctx.lineTo(hx - topW, shY + 2.5 * s); ctx.closePath(); ctx.fill();
+      ell(hx, headY + 0.8 * s, headR * 0.72, headR * 0.82, L.skin);
+    } else {
+      circ(hx, headY, headR, L.skin);
+      if (L.head === 'hair') { ctx.fillStyle = L.hair; ctx.beginPath(); ctx.arc(hx, headY - 0.3 * s, headR + 0.3 * s, Math.PI * 1.02, Math.PI * 1.98); ctx.fill(); }
+      if (L.head === 'taqiya') { ctx.fillStyle = '#f5f2ea'; ctx.beginPath(); ctx.arc(hx, headY - headR * 0.35, headR * 0.92, Math.PI, 0); ctx.fill(); }
+      if (L.head === 'scarf') { ctx.fillStyle = L.scarf; ctx.beginPath(); ctx.arc(hx, headY - headR * 0.25, headR + 0.6 * s, Math.PI * 0.95, Math.PI * 2.05); ctx.fill(); }
+      if (L.head === 'cap') { ctx.fillStyle = L.cap; ctx.beginPath(); ctx.arc(hx, headY - 0.6 * s, headR + 0.3 * s, Math.PI, 0); ctx.fill(); ctx.fillRect(hx - headR, headY - 1.1 * s, headR * 2 + 2.5 * s, 1.3 * s); }
+      if (L.old) { ctx.fillStyle = '#e8e4dc'; ctx.beginPath(); ctx.arc(hx, headY + headR * 0.35, headR * 0.75, 0, Math.PI); ctx.fill(); }
+    }
+    // eyes
+    ctx.fillStyle = 'rgba(20,14,10,.85)';
+    ctx.fillRect(hx - 1.6 * s, headY - 0.2 * s, 0.9 * s, 0.9 * s); ctx.fillRect(hx + 0.7 * s, headY - 0.2 * s, 0.9 * s, 0.9 * s);
+    // destination tag / reaction marks
+    const topY = headY - headR - (o.wave ? 9 : 5) * s;
+    if (o.tag) {
+      ctx.lineWidth = 1.6; ctx.strokeStyle = '#1b1410';
+      ctx.fillStyle = o.tag; ctx.beginPath(); ctx.arc(x, topY - 3 * s, 4.2 * s, 0, 6.2832); ctx.fill(); ctx.stroke();
+    }
+    if (o.mark) {
+      ctx.textAlign = 'center'; ctx.font = `900 ${Math.round(12 * figScale)}px sans-serif`;
+      ctx.lineWidth = 3; ctx.strokeStyle = '#000'; ctx.strokeText(o.mark, x, topY - 1);
+      ctx.fillStyle = o.mark === '!' ? '#ffd84d' : '#fff'; ctx.fillText(o.mark, x, topY - 1);
+    }
+  }
+
+  // ----- textures (built on resize) -----
+  let asphaltPat = null, tilePat = null, tileSize = 64, overlay = null;
+  function makePattern(w, h, paint) {
+    const c = document.createElement('canvas'); c.width = w * DPR; c.height = h * DPR;
+    const g = c.getContext('2d'); g.scale(DPR, DPR); paint(g, w, h);
+    const p = ctx.createPattern(c, 'repeat');
+    try { p.setTransform(new DOMMatrix().scale(1 / DPR)); } catch {}
+    return p;
+  }
+  function buildTextures() {
+    asphaltPat = makePattern(160, 160, (g, w, h) => {
+      g.fillStyle = '#3c3b41'; g.fillRect(0, 0, w, h);
+      const r = seeded(7);
+      for (let i = 0; i < 1400; i++) { g.fillStyle = r() < 0.5 ? `rgba(255,255,255,${r() * 0.07})` : `rgba(0,0,0,${r() * 0.18})`; g.fillRect(r() * w, r() * h, 1 + r() * 1.5, 1 + r() * 1.5); }
+      g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1;
+      for (let i = 0; i < 3; i++) { g.beginPath(); let x = r() * w, y = r() * h; g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += (r() - 0.5) * 18; y += r() * 10; g.lineTo(x, y); } g.stroke(); }
+    });
+    tileSize = 22;
+    tilePat = makePattern(tileSize * 4, tileSize * 4, (g, w, h) => {
+      const r = seeded(11);
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+        const base = (i + j) % 2 ? [206, 186, 152] : [190, 160, 128];
+        const v = (r() - 0.5) * 14;
+        g.fillStyle = `rgb(${base[0] + v},${base[1] + v},${base[2] + v})`;
+        g.fillRect(i * tileSize, j * tileSize, tileSize, tileSize);
+        g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(i * tileSize, j * tileSize, tileSize, 1.5);
+        g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(i * tileSize, j * tileSize + tileSize - 1.5, tileSize, 1.5); g.fillRect(i * tileSize + tileSize - 1.5, j * tileSize, 1.5, tileSize);
+        if (r() < 0.12) { g.fillStyle = 'rgba(60,40,20,.18)'; g.beginPath(); g.arc(i * tileSize + r() * tileSize, j * tileSize + r() * tileSize, 2 + r() * 3, 0, 6.28); g.fill(); }
+      }
+    });
+    // warm light + vignette overlay
+    overlay = document.createElement('canvas'); overlay.width = W * DPR; overlay.height = H * DPR;
+    const g = overlay.getContext('2d'); g.scale(DPR, DPR);
+    const warm = g.createLinearGradient(0, 0, W, H); warm.addColorStop(0, 'rgba(255,190,110,.10)'); warm.addColorStop(1, 'rgba(255,140,60,.04)');
+    g.fillStyle = warm; g.fillRect(0, 0, W, H);
+    const vg = g.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.35, W / 2, H * 0.55, Math.max(W, H) * 0.8);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(20,10,0,.38)');
+    g.fillStyle = vg; g.fillRect(0, 0, W, H);
+  }
+  function fillPatternScrolled(pat, size, x, y, w, h) {
+    ctx.save(); ctx.translate(0, scroll % size); ctx.fillStyle = pat; ctx.fillRect(x, y - size, w, h + size * 2); ctx.restore();
+  }
+
+  // ----- buildings (rooftops) -----
+  const BLD = ['#c9a27a', '#d8b98f', '#b5835a', '#d6a9a0', '#cdb27a', '#a89f94', '#c08a5d', '#e0c9a6', '#b9a184'];
+  function drawBuildingSeg(id, y, x0, w, sideRight) {
+    if (w < 6) return;
+    const bid = Math.floor(id / 3);
+    const col = BLD[Math.floor(hsh(bid, 1) * BLD.length)];
+    ctx.fillStyle = col; ctx.fillRect(x0, y, w, SEG + 0.5);
+    // parapet edges
+    ctx.fillStyle = shade(col, -28);
+    ctx.fillRect(sideRight ? x0 : x0 + w - 3, y, 3, SEG + 0.5);
+    ctx.fillRect(sideRight ? x0 + w - 2 : x0, y, 2, SEG + 0.5);
+    if (((id % 3) + 3) % 3 === 2) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x0, y, w, 4); ctx.fillStyle = shade(col, -28); ctx.fillRect(x0, y + 4, w, 2); }
+    // rooftop clutter
+    const r = hsh(id, 5), cx = x0 + w * (0.3 + hsh(id, 6) * 0.4), cy = y + SEG * (0.25 + hsh(id, 8) * 0.5);
+    const u = Math.min(1.4, w / 34);
+    if (r < 0.28) { // water tank
+      ell(cx + 3, cy + 4, 7 * u, 7 * u, 'rgba(0,0,0,.25)'); circ(cx, cy, 7 * u, hsh(id, 9) < 0.5 ? '#2b2b2b' : '#e8e8e8');
+      ctx.strokeStyle = 'rgba(128,128,128,.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, 4.5 * u, 0, 6.28); ctx.stroke();
+    } else if (r < 0.52) { // satellite dishes
+      for (let k = 0; k < 2; k++) { const dx = cx + (k ? 9 : -4) * u, dy = cy + k * 10 * u; ell(dx + 2, dy + 3, 5 * u, 4 * u, 'rgba(0,0,0,.2)'); ell(dx, dy, 5 * u, 4 * u, '#f2f2f2', -0.5); circ(dx + 1, dy - 0.5, 1.2 * u, '#888'); }
+    } else if (r < 0.68) { // laundry line
+      ctx.strokeStyle = 'rgba(60,60,60,.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0 + 4, cy); ctx.lineTo(x0 + w - 4, cy + 6); ctx.stroke();
+      const cl = ['#e63946', '#f1faee', '#457b9d', '#e9c46a', '#2a9d8f'];
+      for (let k = 0; k < 4; k++) { const px = x0 + 6 + k * (w - 12) / 4; ctx.fillStyle = cl[(id + k) % cl.length]; ctx.fillRect(px, cy + k * 1.5, 5 * u, 7 * u); }
+    } else if (r < 0.78) { // AC units
+      for (let k = 0; k < 2; k++) { const ax = cx - 6 + k * 8 * u, ay = cy + k * 12; ctx.fillStyle = '#d9d9d9'; ctx.fillRect(ax, ay, 9 * u, 7 * u); ctx.strokeStyle = '#999'; ctx.beginPath(); ctx.arc(ax + 4.5 * u, ay + 3.5 * u, 2.5 * u, 0, 6.28); ctx.stroke(); }
+    } else if (r < 0.86) { // pigeon tower
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(cx - 6 * u + 3, cy - 6 * u + 4, 12 * u, 12 * u);
+      ctx.fillStyle = '#9c6b3e'; ctx.fillRect(cx - 6 * u, cy - 6 * u, 12 * u, 12 * u);
+      ctx.strokeStyle = '#5e3c1d'; ctx.lineWidth = 1;
+      for (let k = 1; k < 4; k++) { ctx.beginPath(); ctx.moveTo(cx - 6 * u + k * 3 * u, cy - 6 * u); ctx.lineTo(cx - 6 * u + k * 3 * u, cy + 6 * u); ctx.moveTo(cx - 6 * u, cy - 6 * u + k * 3 * u); ctx.lineTo(cx + 6 * u, cy - 6 * u + k * 3 * u); ctx.stroke(); }
+      for (let k = 0; k < 3; k++) circ(cx - 8 * u + k * 6 * u + Math.sin(animT * 3 + k) * 2, cy - 9 * u, 1.6 * u, '#cfd3d6');
+    } else { // stairwell box
+      ctx.fillStyle = shade(col, -18); ctx.fillRect(cx - 7 * u, cy - 5 * u, 14 * u, 10 * u);
+      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(cx - 7 * u, cy + 5 * u, 14 * u, 3);
+    }
+    // shop awning on the street-facing edge
+    if (((id % 3) + 3) % 3 === 1 && hsh(id, 12) < 0.75) {
+      const aw = Math.min(9, w * 0.3), ax = sideRight ? x0 : x0 + w - aw;
+      const ac = ['#2a9d8f', '#c1121f', '#1d4e89', '#e9a23b', '#6a994e'][Math.floor(hsh(id, 13) * 5)];
+      for (let k = 0; k < 8; k++) { ctx.fillStyle = k % 2 ? '#f6f1e7' : ac; ctx.fillRect(ax, y + 10 + k * 9, aw, 9); }
+      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(sideRight ? ax - 3 : ax + aw, y + 10, 3, 72);
+    }
+  }
+
+  // ----- sidewalk decor -----
+  function decorType(id, side) {
+    const r = hsh(id, 3 + side * 7);
+    if (side === 0) {
+      if (r < 0.24) return 'tree'; if (r < 0.34) return 'lamp'; if (r < 0.42) return 'kiosk'; if (r < 0.5) return 'ahwa';
+      if (r < 0.57) return 'cat'; if (r < 0.63) return 'fruit'; if (r < 0.68) return 'bin'; if (r < 0.8) return 'person'; if (r < 0.86) return 'pots';
+      return null;
+    }
+    if (r < 0.26) return 'tree'; if (r < 0.4) return 'lamp'; if (r < 0.48) return 'cat'; if (r < 0.54) return 'bin';
+    if (r < 0.64) return 'pots'; return null; // no bystanders on the stop side, so riders are easy to spot
+  }
+  function sidewalkSpan(side) { return side === 0 ? [bldW, roadX - CURB] : [roadX + roadW + CURB, W - bldW]; }
+
+  function drawDecorGround(id, y, side) {
+    const t = decorType(id, side); if (!t) return;
+    const [a, b] = sidewalkSpan(side), sw = b - a, cx = (a + b) / 2, cy = y + SEG / 2;
+    const nearRoad = side === 0 ? b - 6 : a + 6, farX = side === 0 ? a + 8 : b - 8;
+    const u = figScale;
+    switch (t) {
+      case 'tree':
+        ctx.fillStyle = '#b8b2a6'; ctx.fillRect(cx - 9 * u, cy - 9 * u, 18 * u, 18 * u);
+        ctx.fillStyle = '#6b4a2e'; ctx.fillRect(cx - 7 * u, cy - 7 * u, 14 * u, 14 * u);
+        circ(cx, cy, 3 * u, '#4a3220');
+        break;
+      case 'lamp':
+        circ(nearRoad, cy, 2.5 * u, '#555');
+        break;
+      case 'kiosk': {
+        const kx = farX - (side === 0 ? 0 : 26 * u), kw = Math.min(26 * u, sw - 8), ky = cy - 18 * u;
+        ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(kx + 3, ky + 4, kw, 36 * u);
+        ctx.fillStyle = '#e8dcc0'; ctx.fillRect(kx, ky, kw, 36 * u);
+        ctx.fillStyle = '#1d6e5a'; ctx.fillRect(kx, ky, kw, 7 * u);
+        const sc = ['#e63946', '#e9c46a', '#3a86ff', '#2a9d8f', '#f4a261'];
+        for (let k = 0; k < 5; k++) { ctx.fillStyle = sc[k]; ctx.fillRect(kx + kw - 5 * u, ky + 9 * u + k * 5 * u, 4 * u, 4 * u); }
+        ctx.fillStyle = '#c1121f'; ctx.fillRect(kx + 2, ky + 24 * u, kw * 0.45, 12 * u);
+        ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(kx + 4, ky + 26 * u, kw * 0.45 - 4, 2);
+        drawFigure(kx + kw * 0.55, ky + 22 * u, lookFor(id * 3 + 1), animT, { seated: true });
+        break;
+      }
+      case 'ahwa': {
+        for (let k = 0; k < 2; k++) {
+          const tx = cx + (k ? 6 : -6) * u, ty = cy + (k ? 18 : -14) * u;
+          drawFigure(tx - 8 * u, ty + 2 * u, lookFor(id * 7 + k), animT, { seated: true });
+          drawFigure(tx + 8 * u, ty + 2 * u, lookFor(id * 7 + k + 3), animT + 1, { seated: true });
+          ell(tx + 1, ty + 3, 6 * u, 3 * u, 'rgba(0,0,0,.25)');
+          circ(tx, ty, 5.5 * u, '#b0b5b9'); circ(tx, ty, 4 * u, '#cfd4d8');
+          ctx.fillStyle = '#a0522d'; ctx.fillRect(tx - 2.5 * u, ty - 2 * u, 1.6 * u, 2.2 * u); ctx.fillRect(tx + 1 * u, ty - 1 * u, 1.6 * u, 2.2 * u);
+          if (k === 0) { // shisha
+            ctx.strokeStyle = '#3a86ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tx + 6 * u, ty + 6 * u); ctx.quadraticCurveTo(tx + 12 * u, ty, tx + 8 * u, ty - 6 * u); ctx.stroke();
+            circ(tx + 6 * u, ty + 7 * u, 2.6 * u, '#7fb7be'); circ(tx + 6 * u, ty + 3.5 * u, 1.3 * u, '#c9a227');
+            ctx.fillStyle = `rgba(230,230,230,${0.35 + 0.2 * Math.sin(animT * 2 + id)})`;
+            circ(tx + 6 * u + Math.sin(animT + id) * 2, ty - 4 * u - (animT * 6 % 8), 2 * u, ctx.fillStyle);
+          }
+        }
+        break;
+      }
+      case 'cat': {
+        const kx = cx + (hsh(id, 21) - 0.5) * sw * 0.4, ky = cy + 6 * u;
+        const cc = ['#e09a4a', '#7d7d7d', '#2b2b2b', '#efe6d8', '#c8813a'][Math.floor(hsh(id, 22) * 5)];
+        ell(kx + 2, ky + 1, 6 * u, 2 * u, 'rgba(0,0,0,.25)');
+        ctx.strokeStyle = cc; ctx.lineWidth = 2 * u; ctx.beginPath(); ctx.moveTo(kx + 4 * u, ky - 1 * u);
+        ctx.quadraticCurveTo(kx + 9 * u, ky - 2 * u, kx + 8 * u + Math.sin(animT * 2.4 + id) * 2.5 * u, ky - 8 * u); ctx.stroke();
+        ell(kx, ky - 4 * u, 4.6 * u, 5 * u, cc);
+        circ(kx, ky - 10 * u, 3.4 * u, cc);
+        ctx.fillStyle = cc; ctx.beginPath();
+        ctx.moveTo(kx - 3.2 * u, ky - 11 * u); ctx.lineTo(kx - 2.6 * u, ky - 15 * u); ctx.lineTo(kx - 0.6 * u, ky - 12.5 * u);
+        ctx.moveTo(kx + 3.2 * u, ky - 11 * u); ctx.lineTo(kx + 2.6 * u, ky - 15 * u); ctx.lineTo(kx + 0.6 * u, ky - 12.5 * u); ctx.fill();
+        circ(kx - 1.2 * u, ky - 10.3 * u, 0.7 * u, '#2f7d32'); circ(kx + 1.2 * u, ky - 10.3 * u, 0.7 * u, '#2f7d32');
+        break;
+      }
+      case 'fruit': {
+        const fx = cx - 12 * u, fy = cy - 10 * u;
+        ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(fx + 3, fy + 4, 24 * u, 20 * u);
+        ctx.fillStyle = '#8b5a2b'; ctx.fillRect(fx, fy, 24 * u, 20 * u);
+        ctx.fillStyle = '#2b2b2b'; ctx.fillRect(fx - 2 * u, fy + 3 * u, 2 * u, 6 * u); ctx.fillRect(fx + 24 * u, fy + 3 * u, 2 * u, 6 * u);
+        const ft = hsh(id, 31) < 0.5;
+        for (let k = 0; k < 12; k++) circ(fx + 4 * u + (k % 4) * 5.5 * u, fy + 4 * u + Math.floor(k / 4) * 5.5 * u, 2.6 * u, ft ? '#f08a24' : (k % 2 ? '#3f8f3f' : '#2f6b2f'));
+        drawFigure(fx + 12 * u, fy + 36 * u, lookFor(id * 5 + 2), animT, {});
+        break;
+      }
+      case 'bin':
+        ell(farX + 2, cy + 6 * u, 6 * u, 2 * u, 'rgba(0,0,0,.25)');
+        ctx.fillStyle = '#2e7d4f'; rr(farX - 5 * u, cy - 8 * u, 10 * u, 14 * u, 2 * u); ctx.fill();
+        ctx.fillStyle = '#245f3c'; ctx.fillRect(farX - 6 * u, cy - 9 * u, 12 * u, 3 * u);
+        for (let k = 0; k < 3; k++) circ(farX + (k - 1) * 6 * u + 3, cy + 9 * u, 2.2 * u, ['#ddd', '#9b2226', '#e9c46a'][k]);
+        break;
+      case 'pots':
+        for (let k = 0; k < 2; k++) {
+          const px = farX + (side === 0 ? 2 : -2) * u, py = cy - 10 * u + k * 16 * u;
+          ell(px + 2, py + 5 * u, 5 * u, 2 * u, 'rgba(0,0,0,.25)');
+          ctx.fillStyle = '#b5552b'; ctx.beginPath(); ctx.moveTo(px - 5 * u, py - 2 * u); ctx.lineTo(px + 5 * u, py - 2 * u); ctx.lineTo(px + 3.5 * u, py + 5 * u); ctx.lineTo(px - 3.5 * u, py + 5 * u); ctx.fill();
+          for (let j = 0; j < 4; j++) ell(px + (j - 1.5) * 2.6 * u, py - 4 * u - (j % 2) * 2 * u, 2.6 * u, 3.4 * u, j % 2 ? '#3f8f3f' : '#2f6b2f');
+        }
+        break;
+      case 'person': {
+        const L = lookFor(id * 11 + side);
+        const px = cx + (hsh(id, 41) - 0.5) * sw * 0.5;
+        drawFigure(px, cy + 10 * u, L, animT * 1.3 + id, { wave: hsh(id, 42) < 0.15 });
+        if (hsh(id, 43) < 0.5) drawFigure(px + 10 * u, cy + 12 * u, lookFor(id * 11 + side + 77), animT + id, {});
+        break;
+      }
+    }
+  }
+  function drawDecorTop(id, y, side) {
+    const t = decorType(id, side); if (t !== 'tree' && t !== 'lamp') return;
+    const [a, b] = sidewalkSpan(side), cx = (a + b) / 2, cy = y + SEG / 2, u = figScale;
+    if (t === 'tree') {
+      const R = Math.max(18, (b - a) * 0.55);
+      const sway = Math.sin(animT * 0.8 + id) * 1.2;
+      const blobs = [[0, 0, 1], [-0.45, -0.35, 0.65], [0.5, -0.3, 0.6], [-0.4, 0.45, 0.6], [0.45, 0.45, 0.62], [0, -0.6, 0.5]];
+      ctx.fillStyle = 'rgba(0,0,0,.22)';
+      for (const [dx, dy, r] of blobs) { ctx.beginPath(); ctx.arc(cx + dx * R + 8, cy + dy * R + 10, r * R * 0.7, 0, 6.28); ctx.fill(); }
+      for (const [dx, dy, r] of blobs) circ(cx + dx * R + sway, cy + dy * R, r * R * 0.7, '#2f6b35');
+      for (const [dx, dy, r] of blobs) circ(cx + dx * R - r * R * 0.18 + sway, cy + dy * R - r * R * 0.2, r * R * 0.42, '#3f8a45');
+      for (let k = 0; k < 6; k++) circ(cx + (hsh(id, 50 + k) - 0.5) * R * 1.2 + sway, cy + (hsh(id, 60 + k) - 0.6) * R * 1.1, R * 0.12, '#5aa65a');
+    } else {
+      const nearRoad = side === 0 ? b - 6 : a + 6, dir = side === 0 ? 1 : -1;
+      ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(nearRoad + 5, cy + 7); ctx.lineTo(nearRoad + dir * 20 * u + 5, cy + 7); ctx.stroke();
+      ctx.strokeStyle = '#4d4d4d'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(nearRoad, cy); ctx.lineTo(nearRoad + dir * 20 * u, cy); ctx.stroke();
+      ell(nearRoad + dir * 22 * u, cy, 5 * u, 3 * u, '#5a5a5a');
+      ell(nearRoad + dir * 22 * u, cy, 3.2 * u, 1.8 * u, '#fff3c4');
+    }
+  }
+
+  // ----- road -----
+  function drawRoad() {
+    fillPatternScrolled(asphaltPat, 160, roadX, -20, roadW, H + 40);
+    // gutters
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(roadX, -20, 5, H + 40); ctx.fillRect(roadX + roadW - 5, -20, 5, H + 40);
+    // patches + manholes + oil stains
+    forSegs((id, y) => {
+      const r = hsh(id, 71);
+      const lane = Math.floor(hsh(id, 72) * 3), lx = laneX(lane);
+      if (r < 0.12) { ctx.fillStyle = 'rgba(25,25,28,.55)'; rr(lx - laneW * 0.35, y + 20, laneW * 0.6, 34, 4); ctx.fill(); }
+      else if (r < 0.2) {
+        circ(lx, y + 45, 9, '#4f4f55'); ctx.strokeStyle = '#2d2d31'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(lx, y + 45, 9, 0, 6.28); ctx.moveTo(lx - 7, y + 42); ctx.lineTo(lx + 7, y + 42); ctx.moveTo(lx - 7, y + 48); ctx.lineTo(lx + 7, y + 48); ctx.stroke();
+      } else if (r < 0.3) ell(lx + 6, y + 40, 10, 6, 'rgba(0,0,0,.25)');
+    });
+    // lane dashes (slightly worn)
+    const dash = 40, period = dash * 2, dOff = scroll % period, base = Math.floor(scroll / period);
+    for (let l = 1; l < 3; l++) for (let k = -1; k * period + dOff < H + period; k++) {
+      const y = k * period + dOff - period, id = base - k;
+      ctx.fillStyle = `rgba(242,238,225,${0.65 + 0.3 * hsh(id, l)})`;
+      ctx.fillRect(roadX + laneW * l - 2, y, 4, dash);
+    }
+  }
+  function drawCurbs() {
+    const seg = 18, off = scroll % (seg * 2);
+    for (const cx of [roadX - CURB, roadX + roadW]) {
+      ctx.fillStyle = '#efefea'; ctx.fillRect(cx, -20, CURB, H + 40);
+      ctx.fillStyle = '#1e1e1e';
+      for (let y = -seg * 2 + off; y < H + seg; y += seg * 2) ctx.fillRect(cx, y, CURB, seg);
+    }
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(roadX, -20, 3, H + 40); ctx.fillRect(roadX + roadW - 3, -20, 3, H + 40);
+  }
+
+  // ----- stops -----
+  function drawStop(s, isNext) {
+    const zx = roadX + laneW * 2 + 3, zw = laneW - 6;
+    if (!s.done) {
+      ctx.fillStyle = isNext ? 'rgba(255,216,77,.20)' : 'rgba(255,255,255,.07)';
+      ctx.fillRect(zx, s.y, zw, s.h);
+      ctx.setLineDash([10, 8]); ctx.strokeStyle = isNext ? '#ffd84d' : 'rgba(255,255,255,.4)'; ctx.lineWidth = 3;
+      ctx.strokeRect(zx, s.y, zw, s.h); ctx.setLineDash([]);
+      if (isNext && s.dwell > 0) { ctx.fillStyle = '#3ddc84'; ctx.fillRect(zx, s.y + s.h - 8, zw * Math.min(1, s.dwell / 0.45), 8); }
+      ctx.fillStyle = isNext ? '#ffd84d' : 'rgba(255,255,255,.5)'; ctx.font = '900 13px sans-serif'; ctx.textAlign = 'center';
+      ctx.font = '900 15px Cairo, Tahoma, sans-serif'; ctx.fillText('موقف', zx + zw / 2, s.y + 22);
+      ctx.font = '700 11px Cairo, Tahoma, sans-serif'; ctx.fillText('اقف هنا', zx + zw / 2, s.y + 38);
+    }
+    const [a, b] = sidewalkSpan(1), u = figScale;
+    // sign post at the curb
+    const px = a + 5, py = s.y + 8;
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(px + 3, py + 4, 3, 40);
+    ctx.fillStyle = '#6d6d6d'; ctx.fillRect(px, py, 3, 40);
+    const signW = Math.max(56, Math.min(92, W - px - 6)), sx = Math.min(px - 4, W - signW - 4);
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; rr(sx + 3, py - 10 + 4, signW, 36, 7); ctx.fill();
+    ctx.fillStyle = '#fff'; rr(sx - 1.5, py - 11.5, signW + 3, 39, 8); ctx.fill();
+    ctx.fillStyle = s.st.color; rr(sx, py - 10, signW, 36, 7); ctx.fill();
+    ctx.fillStyle = '#1b1410'; ctx.textAlign = 'center';
+    ctx.font = '700 10px Cairo, Tahoma, sans-serif'; ctx.fillText('🚐 موقف', sx + signW / 2, py + 2);
+    ctx.font = '900 15px Cairo, Tahoma, sans-serif'; ctx.fillText(s.st.ar, sx + signW / 2, py + 20);
+    // waiting crowd
+    const cols = Math.max(2, Math.floor((b - a - 6) / (13 * u)));
+    let i = 0;
+    for (const g of s.groups) {
+      if (g.boarded) continue;
+      for (let k = 0; k < g.n; k++, i++) {
+        const c = i % cols, row = Math.floor(i / cols);
+        if (row > 3) break;
+        const fx = a + 9 * u + c * 13 * u + (row % 2) * 4 * u;
+        const fy = py + 78 * u + row * 26 * u;
+        drawFigure(fx, fy, g.looks[k], animT * 5 + i, { wave: k === 0, tag: g.dest.color });
+      }
+    }
+  }
+
+  // ----- crash damage (dents, scratches, cracked glass, broken lights) -----
+  function drawDamage(dmg, x, y, w, h) {
+    if (!dmg || !dmg.length) return;
+    for (const d of dmg) {
+      const r = seeded(d.seed);
+      const k = d.small ? 0.6 : 1;
+      const px = Math.max(x + 3, Math.min(x + w - 3, x + d.rx * w));
+      const py = Math.max(y + 3, Math.min(y + h - 3, y + d.ry * h));
+      const R = Math.min(w, h) * 0.21 * k + 2;
+      // crumpled dent
+      ctx.fillStyle = 'rgba(35,35,40,.55)';
+      ctx.beginPath();
+      for (let i = 0; i < 9; i++) { const a = i / 9 * 6.283, rr2 = R * (0.65 + r() * 0.5); ctx.lineTo(px + Math.cos(a) * rr2, py + Math.sin(a) * rr2 * 0.8); }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.28)';
+      ctx.beginPath(); ctx.ellipse(px - R * 0.25, py - R * 0.25, R * 0.45, R * 0.22, -0.6, 0, 6.283); ctx.fill();
+      // bare-metal scratches
+      ctx.strokeStyle = 'rgba(170,170,175,.9)'; ctx.lineWidth = 1;
+      for (let i = 0; i < 4; i++) {
+        const a = r() * 6.283, l = R * (0.8 + r() * 1.2);
+        ctx.beginPath(); ctx.moveTo(px + Math.cos(a) * R * 0.3, py + Math.sin(a) * R * 0.3); ctx.lineTo(px + Math.cos(a) * l, py + Math.sin(a) * l); ctx.stroke();
+      }
+      // front hit: cracked windshield + smashed headlight
+      if (d.ry < 0.3) {
+        const cx = Math.max(x + 8, Math.min(x + w - 8, px)), cy = y + h * 0.13;
+        ctx.strokeStyle = 'rgba(235,245,255,.85)'; ctx.lineWidth = 0.9;
+        for (let i = 0; i < 7; i++) {
+          let a = r() * 6.283, lx = cx, ly = cy;
+          ctx.beginPath(); ctx.moveTo(lx, ly);
+          for (let j = 0; j < 3; j++) { a += (r() - 0.5) * 0.9; lx += Math.cos(a) * w * 0.13; ly += Math.sin(a) * h * 0.035; ctx.lineTo(Math.max(x + 5, Math.min(x + w - 5, lx)), Math.max(y + h * 0.07, Math.min(y + h * 0.2, ly))); }
+          ctx.stroke();
+        }
+        ctx.beginPath(); ctx.arc(cx, cy, 2.2, 0, 6.283); ctx.stroke();
+        const hx = d.rx < 0.5 ? x + 6 : x + w - 6;
+        ctx.fillStyle = '#2a2a2a'; ctx.beginPath(); ctx.ellipse(hx, y + 4, 3.8, 2.4, 0, 0, 6.283); ctx.fill();
+        ctx.fillStyle = 'rgba(220,240,255,.8)'; for (let i = 0; i < 3; i++) ctx.fillRect(hx - 3 + r() * 6, y + 2 + r() * 4, 1.2, 1.2);
+      }
+      // rear hit: smashed tail-light
+      if (d.ry > 0.75) {
+        const tx = d.rx < 0.5 ? x + 3 : x + w - 11;
+        ctx.fillStyle = '#2a2a2a'; ctx.fillRect(tx, y + h - 4, 8, 3.5);
+      }
+    }
+  }
+
+  // ----- vehicles -----
+  function drawVehicle(v) {
+    const x = v.x - v.w / 2, y = v.y, w = v.w, h = v.h;
+    if (v.kind === 'cart') return drawCart(v);
+    ctx.fillStyle = 'rgba(0,0,0,.32)'; rr(x + 5, y + 7, w, h, 8); ctx.fill();
+    if (v.kind === 'tuk') {
+      // body
+      ctx.fillStyle = v.color; rr(x, y + h * 0.12, w, h * 0.85, 8); ctx.fill();
+      ctx.fillStyle = shade(v.color, -40); ctx.beginPath(); ctx.moveTo(x + w * 0.2, y + h * 0.15); ctx.lineTo(v.x, y); ctx.lineTo(x + w * 0.8, y + h * 0.15); ctx.fill();
+      circ(v.x, y + 3, 2.4, '#fff7c2');
+      // canvas roof with fringe
+      ctx.fillStyle = '#1c1c1c'; rr(x + 1, y + h * 0.3, w - 2, h * 0.6, 6); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(x + 3, y + h * 0.33, w * 0.4, h * 0.54);
+      ctx.fillStyle = '#e9c46a'; for (let k = 0; k < 5; k++) circ(x + 3 + k * (w - 6) / 4, y + h * 0.3, 1.3, '#e9c46a');
+      ctx.fillStyle = '#ff3b3b'; ctx.fillRect(x + 2, y + h - 3, 4, 2); ctx.fillRect(x + w - 6, y + h - 3, 4, 2);
+      drawDamage(v.dmg, x, y, w, h);
+      drawYield(v, x, y, w, h);
+      return;
+    }
+    // mirrors
+    ctx.fillStyle = shade(v.color, -50); ctx.fillRect(x - 3, y + h * 0.3, 3, 4); ctx.fillRect(x + w, y + h * 0.3, 3, 4);
+    // body with side shading
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0, shade(v.color, -45)); g.addColorStop(0.25, v.color); g.addColorStop(0.75, v.color); g.addColorStop(1, shade(v.color, -45));
+    ctx.fillStyle = g; rr(x, y, w, h, 8); ctx.fill();
+    // windshield / roof / rear glass
+    ctx.fillStyle = '#1d2733';
+    ctx.beginPath(); ctx.moveTo(x + 4, y + h * 0.36); ctx.lineTo(x + 7, y + h * 0.22); ctx.lineTo(x + w - 7, y + h * 0.22); ctx.lineTo(x + w - 4, y + h * 0.36); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.moveTo(x + 9, y + h * 0.235); ctx.lineTo(x + w * 0.45, y + h * 0.235); ctx.lineTo(x + w * 0.3, y + h * 0.34); ctx.lineTo(x + 7, y + h * 0.34); ctx.fill();
+    ctx.fillStyle = shade(v.color, 12); rr(x + 5, y + h * 0.37, w - 10, h * 0.32, 4); ctx.fill();
+    ctx.fillStyle = '#1d2733';
+    ctx.beginPath(); ctx.moveTo(x + 5, y + h * 0.7); ctx.lineTo(x + w - 5, y + h * 0.7); ctx.lineTo(x + w - 7, y + h * 0.8); ctx.lineTo(x + 7, y + h * 0.8); ctx.fill();
+    // hood line
+    ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(v.x, y + 3); ctx.lineTo(v.x, y + h * 0.2); ctx.stroke();
+    if (v.kind === 'taxi') {
+      for (let k = 0; k < 10; k++) {
+        ctx.fillStyle = k % 2 ? '#111' : '#f5f5f5';
+        ctx.fillRect(x, y + h * 0.38 + k * 3, 2.5, 3); ctx.fillRect(x + w - 2.5, y + h * 0.38 + k * 3, 2.5, 3);
+        ctx.fillStyle = k % 2 ? '#f5f5f5' : '#111';
+        ctx.fillRect(x + 2.5, y + h * 0.38 + k * 3, 2.5, 3); ctx.fillRect(x + w - 5, y + h * 0.38 + k * 3, 2.5, 3);
+      }
+      ctx.fillStyle = '#111'; rr(v.x - 6, y + h * 0.48, 12, 6, 2); ctx.fill();
+      ctx.fillStyle = '#ffd84d'; ctx.fillRect(v.x - 4, y + h * 0.5, 8, 2);
+    }
+    // lights
+    ell(x + 5, y + 3, 3, 1.8, '#fff8d6'); ell(x + w - 5, y + 3, 3, 1.8, '#fff8d6');
+    ctx.fillStyle = '#e02828'; ctx.fillRect(x + 2, y + h - 3, 6, 2.5); ctx.fillRect(x + w - 8, y + h - 3, 6, 2.5);
+    drawDamage(v.dmg, x, y, w, h);
+    drawYield(v, x, y, w, h);
+  }
+  function drawYield(v, x, y, w, h) {
+    if (!(v.yield > 0 && Math.floor(v.yield * 8) % 2 === 0)) return;
+    ctx.fillStyle = '#ffb000'; ctx.shadowColor = '#ffb000'; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.arc(x + 3, y + 3, 3.5, 0, 6.28); ctx.arc(x + w - 3, y + 3, 3.5, 0, 6.28); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + 3, y + h - 3, 3.5, 0, 6.28); ctx.arc(x + w - 3, y + h - 3, 3.5, 0, 6.28); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  function drawCart(v) {
+    const x = v.x - v.w / 2, y = v.y, w = v.w, h = v.h;
+    const step = Math.sin(animT * 7 + v.x);
+    // donkey legs
+    ctx.strokeStyle = '#6f6f6f'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(v.x - 4, y + h * 0.16); ctx.lineTo(v.x - 5, y + h * 0.16 - 5 - step * 2);
+    ctx.moveTo(v.x + 4, y + h * 0.16); ctx.lineTo(v.x + 5, y + h * 0.16 - 5 + step * 2);
+    ctx.moveTo(v.x - 4, y + h * 0.36); ctx.lineTo(v.x - 5, y + h * 0.36 + 5 + step * 2);
+    ctx.moveTo(v.x + 4, y + h * 0.36); ctx.lineTo(v.x + 5, y + h * 0.36 + 5 - step * 2);
+    ctx.stroke();
+    ell(v.x + 3, y + h * 0.3, w * 0.24, h * 0.17, 'rgba(0,0,0,.25)');
+    ell(v.x, y + h * 0.26, w * 0.22, h * 0.16, '#9a9a9a');
+    ctx.fillStyle = '#5a4a3a'; ctx.fillRect(v.x - 0.8, y + h * 0.12, 1.6, h * 0.26);
+    ell(v.x, y + h * 0.06, w * 0.12, h * 0.08, '#8d8d8d');
+    ell(v.x, y + h * 0.015, w * 0.07, h * 0.035, '#bdbdbd');
+    ctx.fillStyle = '#7a7a7a'; ell(v.x - 4, y + h * 0.1, 1.6, 4, '#7a7a7a', -0.4); ell(v.x + 4, y + h * 0.1, 1.6, 4, '#7a7a7a', 0.4);
+    // shafts
+    ctx.strokeStyle = '#5e3c1d'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(x + 3, y + h * 0.48); ctx.lineTo(v.x - 6, y + h * 0.2); ctx.moveTo(x + w - 3, y + h * 0.48); ctx.lineTo(v.x + 6, y + h * 0.2); ctx.stroke();
+    // cart body
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(x + 4, y + h * 0.47 + 5, w, h * 0.53);
+    ctx.fillStyle = '#2b2b2b'; ctx.fillRect(x - 3, y + h * 0.68, 3, 10); ctx.fillRect(x + w, y + h * 0.68, 3, 10);
+    ctx.fillStyle = '#9c6b3e'; ctx.fillRect(x, y + h * 0.46, w, h * 0.54);
+    ctx.strokeStyle = 'rgba(70,40,15,.6)'; ctx.lineWidth = 1;
+    for (let k = 1; k < 5; k++) { ctx.beginPath(); ctx.moveTo(x, y + h * 0.46 + k * h * 0.108); ctx.lineTo(x + w, y + h * 0.46 + k * h * 0.108); ctx.stroke(); }
+    // cargo: watermelons
+    for (let k = 0; k < 6; k++) {
+      const mx = x + w * 0.27 + (k % 2) * w * 0.46, my = y + h * 0.66 + Math.floor(k / 2) * h * 0.11;
+      circ(mx, my, w * 0.17, '#2f7a34'); ctx.strokeStyle = '#1e5222'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(mx, my, w * 0.1, 0.3, 2.8); ctx.stroke();
+    }
+    // driver
+    drawFigure(v.x, y + h * 0.56, lookFor(Math.floor(v.x * 13 + v.v * 7)), animT, { seated: true });
+    drawDamage(v.dmg, x, y + h * 0.46, w, h * 0.54);
+    drawYield(v, x, y + h * 0.46, w, h * 0.54);
+  }
+
+  function drawBus() {
+    const x = bus.x - busW / 2, y = busY, w = busW, h = busH;
+    if (bus.inv > 0 && Math.floor(bus.inv * 10) % 2 === 0) ctx.globalAlpha = 0.45;
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; rr(x + 6, y + 8, w, h, 10); ctx.fill();
+    // mirrors
+    ctx.fillStyle = '#222'; ctx.fillRect(x - 5, y + h * 0.1, 5, 6); ctx.fillRect(x + w, y + h * 0.1, 5, 6);
+    // body
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0, '#c9c9c2'); g.addColorStop(0.18, '#f7f7f3'); g.addColorStop(0.82, '#f7f7f3'); g.addColorStop(1, '#c9c9c2');
+    ctx.fillStyle = g; rr(x, y, w, h, 10); ctx.fill();
+    // nose
+    ctx.fillStyle = '#e4e4de'; rr(x + 2, y + 1, w - 4, h * 0.07, 7); ctx.fill();
+    ell(x + 6, y + 4, 3.5, 2.2, '#fff6c4'); ell(x + w - 6, y + 4, 3.5, 2.2, '#fff6c4');
+    // windshield
+    ctx.fillStyle = '#1b2633';
+    ctx.beginPath(); ctx.moveTo(x + 4, y + h * 0.2); ctx.lineTo(x + 6, y + h * 0.075); ctx.lineTo(x + w - 6, y + h * 0.075); ctx.lineTo(x + w - 4, y + h * 0.2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.beginPath(); ctx.moveTo(x + 8, y + h * 0.085); ctx.lineTo(x + w * 0.45, y + h * 0.085); ctx.lineTo(x + w * 0.3, y + h * 0.19); ctx.lineTo(x + 6, y + h * 0.19); ctx.fill();
+    // side stripes (blue + orange)
+    ctx.fillStyle = '#1e5fbf'; ctx.fillRect(x, y + h * 0.22, 3.5, h * 0.72); ctx.fillRect(x + w - 3.5, y + h * 0.22, 3.5, h * 0.72);
+    ctx.fillStyle = '#f08a24'; ctx.fillRect(x + 3.5, y + h * 0.22, 1.5, h * 0.72); ctx.fillRect(x + w - 5, y + h * 0.22, 1.5, h * 0.72);
+    // roof panel
+    ctx.fillStyle = '#fbfbf8'; rr(x + 6, y + h * 0.22, w - 12, h * 0.7, 5); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.08)'; ctx.lineWidth = 1; for (let k = 1; k < 6; k++) { ctx.beginPath(); ctx.moveTo(x + 7, y + h * (0.22 + k * 0.115)); ctx.lineTo(x + w - 7, y + h * (0.22 + k * 0.115)); ctx.stroke(); }
+    // roof rack
+    ctx.strokeStyle = '#7d7d7d'; ctx.lineWidth = 1.8;
+    ctx.strokeRect(x + 8, y + h * 0.27, w - 16, h * 0.58);
+    for (let k = 1; k < 4; k++) { ctx.beginPath(); ctx.moveTo(x + 8, y + h * (0.27 + k * 0.145)); ctx.lineTo(x + w - 8, y + h * (0.27 + k * 0.145)); ctx.stroke(); }
+    // luggage: bags, rolled carpet, crate of oranges
+    const L = (fx, fy, fw, fh, c, r = 2) => { ctx.fillStyle = 'rgba(0,0,0,.25)'; rr(x + w * fx + 2, y + h * fy + 2, w * fw, h * fh, r); ctx.fill(); ctx.fillStyle = c; rr(x + w * fx, y + h * fy, w * fw, h * fh, r); ctx.fill(); };
+    L(0.2, 0.3, 0.32, 0.11, '#7b4b2a'); ctx.fillStyle = '#5a3720'; ctx.fillRect(x + w * 0.2, y + h * 0.345, w * 0.32, 1.5);
+    L(0.58, 0.31, 0.24, 0.15, '#2f6b3a');
+    L(0.18, 0.47, 0.64, 0.07, '#b23a48', 4);
+    ctx.fillStyle = '#e9c46a'; for (let k = 0; k < 6; k++) ctx.fillRect(x + w * (0.22 + k * 0.1), y + h * 0.47, 1.5, h * 0.07);
+    L(0.24, 0.6, 0.34, 0.16, '#a0763f');
+    for (let k = 0; k < 6; k++) circ(x + w * (0.3 + (k % 3) * 0.1), y + h * (0.64 + Math.floor(k / 3) * 0.07), w * 0.045, '#f08a24');
+    L(0.62, 0.62, 0.2, 0.12, '#3d5a80');
+    // rope
+    ctx.strokeStyle = 'rgba(230,210,160,.9)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x + 8, y + h * 0.3); ctx.lineTo(x + w - 8, y + h * 0.8); ctx.moveTo(x + w - 8, y + h * 0.3); ctx.lineTo(x + 8, y + h * 0.8); ctx.stroke();
+    // rear window + ladder
+    ctx.fillStyle = '#1b2633'; rr(x + 6, y + h * 0.9, w - 12, h * 0.06, 3); ctx.fill();
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x + w - 12, y + h * 0.85); ctx.lineTo(x + w - 12, y + h); ctx.moveTo(x + w - 8, y + h * 0.85); ctx.lineTo(x + w - 8, y + h); ctx.stroke();
+    // brake lights
+    ctx.fillStyle = braking ? '#ff2222' : '#8f1b1b';
+    ctx.fillRect(x + 3, y + h - 4, 8, 3.5); ctx.fillRect(x + w - 11, y + h - 4, 8, 3.5);
+    if (braking && bus.speed > 5) { const bg = ctx.createLinearGradient(0, y + h, 0, y + h + 18); bg.addColorStop(0, 'rgba(255,40,40,.45)'); bg.addColorStop(1, 'rgba(255,40,40,0)'); ctx.fillStyle = bg; ctx.fillRect(x, y + h, w, 18); }
+    drawDamage(bus.dmg, x, y, w, h);
+    // rider count badge
+    ctx.fillStyle = riders.length >= SEATS ? '#ff6b6b' : '#1b1410';
+    circ(bus.x, y + h * 0.42, 11, ctx.fillStyle);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bus.x, y + h * 0.42, 11, 0, 6.28); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = '900 11px sans-serif'; ctx.textAlign = 'center'; ctx.direction = 'ltr'; ctx.fillText(riders.length, bus.x, y + h * 0.42 + 4);
+    ctx.globalAlpha = 1;
+  }
+
+  // ----- police vehicles -----
+  function drawCop(cop) {
+    if (!cop) return;
+    const x = cop.x - cop.w / 2, y = cop.y, w = cop.w, h = cop.h;
+    const ph = Math.floor(animT * 8) % 2;
+    // flashing light spill on the road
+    const glow = ctx.createRadialGradient(cop.x, y + h * 0.3, 2, cop.x, y + h * 0.3, laneW * 0.9);
+    glow.addColorStop(0, ph ? 'rgba(255,40,40,.35)' : 'rgba(40,110,255,.35)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow; ctx.fillRect(cop.x - laneW, y - laneW * 0.6, laneW * 2, h + laneW * 1.2);
+    ctx.fillStyle = 'rgba(0,0,0,.32)'; rr(x + 4, y + 6, w, h, cop.kind === 'bike' ? 5 : 8); ctx.fill();
+    if (cop.kind === 'bike') {
+      ctx.fillStyle = '#1b1b1b'; rr(cop.x - w * 0.22, y - 2, w * 0.44, h * 0.24, 3); ctx.fill(); rr(cop.x - w * 0.22, y + h * 0.78, w * 0.44, h * 0.24, 3); ctx.fill();
+      ctx.fillStyle = '#f2f2f2'; rr(x, y + h * 0.16, w, h * 0.66, 5); ctx.fill();
+      ctx.fillStyle = '#1d3557'; ctx.fillRect(x, y + h * 0.42, w, h * 0.12);
+      ctx.strokeStyle = '#333'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 4, y + h * 0.2); ctx.lineTo(x + w + 4, y + h * 0.2); ctx.stroke();
+      // rider: white uniform + white helmet
+      ell(cop.x, y + h * 0.5, w * 0.62, h * 0.16, '#f7f7f2');
+      circ(cop.x, y + h * 0.36, w * 0.36, '#ffffff'); ctx.strokeStyle = '#9aa'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cop.x, y + h * 0.36, w * 0.36, 0, 6.28); ctx.stroke();
+      ctx.fillStyle = '#1d3557'; ctx.fillRect(cop.x - w * 0.3, y + h * 0.33, w * 0.6, 2);
+      circ(cop.x - w * 0.3, y + h * 0.85, 3, ph ? '#ff2a2a' : '#5a1010'); circ(cop.x + w * 0.3, y + h * 0.85, 3, ph ? '#1a3a80' : '#2a7fff');
+      ctx.shadowBlur = 14; ctx.shadowColor = ph ? '#ff2a2a' : '#2a7fff';
+      circ(ph ? cop.x - w * 0.3 : cop.x + w * 0.3, y + h * 0.85, 3, ph ? '#ff6060' : '#60a0ff'); ctx.shadowBlur = 0;
+      return;
+    }
+    // police car: navy with white band, roof sign, light bar
+    ctx.fillStyle = '#0f1f3d'; ctx.fillRect(x - 3, y + h * 0.3, 3, 4); ctx.fillRect(x + w, y + h * 0.3, 3, 4);
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0, '#0f1f3d'); g.addColorStop(0.25, '#1d3557'); g.addColorStop(0.75, '#1d3557'); g.addColorStop(1, '#0f1f3d');
+    ctx.fillStyle = g; rr(x, y, w, h, 8); ctx.fill();
+    ctx.fillStyle = '#f5f5f5'; ctx.fillRect(x, y + h * 0.56, w, h * 0.08);
+    ctx.fillStyle = '#1d2733';
+    ctx.beginPath(); ctx.moveTo(x + 4, y + h * 0.34); ctx.lineTo(x + 7, y + h * 0.2); ctx.lineTo(x + w - 7, y + h * 0.2); ctx.lineTo(x + w - 4, y + h * 0.34); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x + 5, y + h * 0.72); ctx.lineTo(x + w - 5, y + h * 0.72); ctx.lineTo(x + w - 7, y + h * 0.82); ctx.lineTo(x + 7, y + h * 0.82); ctx.fill();
+    ctx.fillStyle = '#e9eef5'; rr(x + 5, y + h * 0.36, w - 10, h * 0.2, 3); ctx.fill();
+    ctx.fillStyle = '#1d3557'; ctx.font = `900 ${Math.max(9, Math.round(w * 0.24))}px Cairo, Tahoma, sans-serif`; ctx.textAlign = 'center'; ctx.direction = 'rtl';
+    ctx.fillText('شرطة', cop.x, y + h * 0.505);
+    // light bar
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = '#ff2a2a'; ctx.fillStyle = ph ? '#ff4040' : '#5a1010'; rr(x + 4, y + h * 0.3, w / 2 - 5, 5, 2); ctx.fill();
+    ctx.shadowColor = '#2a7fff'; ctx.fillStyle = ph ? '#14306e' : '#4a90ff'; rr(cop.x + 1, y + h * 0.3, w / 2 - 5, 5, 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ell(x + 5, y + 3, 3, 1.8, '#fff8d6'); ell(x + w - 5, y + 3, 3, 1.8, '#fff8d6');
+  }
+  function drawCopIndicator() {
+    if (!cop || cop.leaving || cop.y < H - 40) return;
+    const ph = Math.floor(animT * 6) % 2;
+    const meters = Math.max(1, Math.round((cop.y - (busY + busH)) / 6));
+    const bx = W / 2, by = H - 150;
+    ctx.fillStyle = ph ? 'rgba(200,20,20,.85)' : 'rgba(20,60,200,.85)';
+    rr(bx - 82, by - 16, 164, 32, 16); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = '900 14px Cairo, Tahoma, sans-serif'; ctx.textAlign = 'center'; ctx.direction = 'rtl';
+    ctx.fillText(`🚨 البوليس ورا ${meters} متر ⬇`, bx, by + 5);
+  }
+
+  // ----- frame -----
+  function draw() {
+    ctx.save();
+    if (shake) ctx.translate(rand(-shake, shake), rand(-shake, shake));
+
+    // buildings
+    ctx.fillStyle = '#8f7a63'; ctx.fillRect(-20, -20, W + 40, H + 40);
+    forSegs((id, y) => { drawBuildingSeg(id, y, 0, bldW, false); drawBuildingSeg(id + 100000, y, W - bldW, bldW, true); });
+    // sidewalks
+    const [la, lb] = sidewalkSpan(0), [ra, rb] = sidewalkSpan(1);
+    fillPatternScrolled(tilePat, tileSize * 4, la, -20, lb - la, H + 40);
+    fillPatternScrolled(tilePat, tileSize * 4, ra, -20, rb - ra, H + 40);
+    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(la, -20, 4, H + 40); ctx.fillRect(rb - 4, -20, 4, H + 40);
+    drawRoad();
+    drawCurbs();
+    // sidewalk life
+    forSegs((id, y) => { drawDecorGround(id, y, 0); drawDecorGround(id + 5000, y, 1); });
+    forSegs((id, y) => { drawDecorTop(id, y, 0); drawDecorTop(id + 5000, y, 1); });
+
+    // stops
+    const next = stops.find(s => !s.done);
+    for (const s of stops) drawStop(s, s === next);
+
+    // pedestrians crossing
+    for (const p of peds) drawFigure(p.x, p.y, p.look, p.t, { walk: !p.wait, run: p.run, dir: Math.sign(p.vx), mark: p.run ? '!' : p.wait ? '✋' : null, stopHand: p.wait });
+
+    // traffic
+    for (const v of traffic) drawVehicle(v);
+
+    // horn sound waves
+    for (const w of honkWaves) {
+      ctx.strokeStyle = `rgba(255,216,77,${Math.max(0, w.life / 0.6) * 0.8})`; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(bus.x, busY + 6, w.r, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+    }
+    drawCop(leavingCop); drawCop(cop);
+    if (state !== 'menu') drawBus();
+
+    // engine smoke
+    for (const m of smoke) {
+      const a = Math.max(0, m.life / m.max);
+      ctx.fillStyle = m.dark ? `rgba(70,70,75,${a * 0.55})` : `rgba(235,235,235,${a * 0.45})`;
+      ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 6.283); ctx.fill();
+    }
+    // particles
+    for (const p of parts) { ctx.globalAlpha = Math.max(0, p.life * 1.5); ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); }
+    ctx.globalAlpha = 1;
+
+    // lighting
+    if (overlay) ctx.drawImage(overlay, 0, 0, W, H);
+    // red/blue edge flashes while the police are on you
+    if (cop && !cop.leaving && state !== 'menu') {
+      const ph = Math.floor(animT * 4) % 2, a = chase ? 0.22 : 0.12;
+      const eg = ctx.createLinearGradient(0, 0, W, 0);
+      eg.addColorStop(0, ph ? `rgba(255,30,30,${a})` : `rgba(30,90,255,${a})`); eg.addColorStop(0.18, 'rgba(0,0,0,0)');
+      eg.addColorStop(0.82, 'rgba(0,0,0,0)'); eg.addColorStop(1, ph ? `rgba(30,90,255,${a})` : `rgba(255,30,30,${a})`);
+      ctx.fillStyle = eg; ctx.fillRect(0, 0, W, H);
+    }
+    drawCopIndicator();
+
+    // toasts
+    ctx.textAlign = 'center'; ctx.direction = 'rtl'; ctx.font = '900 17px Cairo, Tahoma, sans-serif';
+    for (const t of toasts) {
+      ctx.globalAlpha = Math.min(1, t.life * 1.5);
+      const tw = ctx.measureText(t.text).width / 2 + 10, tx = Math.min(W - tw, Math.max(tw, t.x));
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.75)'; ctx.strokeText(t.text, tx, t.y);
+      ctx.fillStyle = t.color; ctx.fillText(t.text, tx, t.y);
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // ---------- loop / screens ----------
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.033, (now - last) / 1000); last = now; animT += dt;
+    if (state === 'play') update(dt);
+    else if (state === 'menu') { scroll += 90 * dt; elapsed += dt; }
+    else if (state === 'over') { for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; } parts = parts.filter(p => p.life > 0); shake = Math.max(0, shake - dt * 30); }
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function start() {
+    initAudio(); reset(); state = 'play'; lastHud = '';
+    ['startScreen', 'overScreen', 'pauseScreen', 'jailScreen'].forEach(id => $(id).classList.add('hidden'));
+    $('hud').style.display = 'block'; $('controls').style.display = 'flex';
+    $('hint').style.display = 'block'; setTimeout(() => $('hint').style.display = 'none', 4000);
+    updateHud();
+  }
+  function endShift(reason) {
+    if (state !== 'play') return;
+    state = 'over'; setBrake(false); honkEnd(); hidePay(); stopSiren();
+    endReason = reason;
+    const isBest = money > best; if (isBest) { best = money; store.set('mbr_best', best); }
+    $('reason').textContent = reason;
+    $('finalMoney').textContent = money + ' ج';
+    $('newBest').textContent = isBest ? 'أحسن وردية ليك! 🔥' : '';
+    $('finalLines').innerHTML = `ركاب وصّلتهم: <b>${delivered}</b><br>التقييم: <b>${stars.toFixed(1)} ★</b> · خبطات: <b>${carsHit}</b> عربية، <b>${pedsHit}</b> ناس<br>أحسن وردية: <b>${best} ج</b>`;
+    $('controls').style.display = 'none';
+    setTimeout(() => $('overScreen').classList.remove('hidden'), 500);
+  }
+  function togglePause() {
+    if (state === 'play') { state = 'pause'; setBrake(false); honkEnd(); sirenVolume(0); $('pauseScreen').classList.remove('hidden'); }
+    else if (state === 'pause') { state = 'play'; last = performance.now(); $('pauseScreen').classList.add('hidden'); }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') togglePause(); });
+
+  $('startBtn').addEventListener('click', start);
+  $('retryBtn').addEventListener('click', start);
+  $('jailRetryBtn').addEventListener('click', start);
+  $('resumeBtn').addEventListener('click', togglePause);
+
+  resize(); reset();
+  function renderHornChips() {
+    const opts = [{ id: 'mix', ar: '🔀 شكّل' }, ...HORNS];
+    $('hornChips').innerHTML = opts.map(h => `<button class="hchip ${h.id === hornChoice ? 'sel' : ''}" data-id="${h.id}">${h.ar}</button>`).join('');
+  }
+  $('hornChips').addEventListener('click', e => {
+    const b = e.target.closest('.hchip'); if (!b) return;
+    initAudio();
+    hornChoice = b.dataset.id; store.set('mbr_horn', hornChoice);
+    renderHornChips();
+    playHorn(hornChoice === 'mix' ? HORNS[Math.floor(Math.random() * HORNS.length)] : HORNS.find(h => h.id === hornChoice));
+  });
+  renderHornChips();
+  $('bestStart').textContent = best ? `أحسن وردية: ${best} ج` : '';
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
