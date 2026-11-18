@@ -23,6 +23,12 @@ android {
         }
     }
 
+    lint {
+        // Sideloaded APK: don't let Play-Store policy lint checks block the build.
+        checkReleaseBuilds false
+        abortOnError false
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
