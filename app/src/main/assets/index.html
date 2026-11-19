@@ -418,13 +418,15 @@
   let state = 'menu';
   let honkWaves = [], smoke = [], smokeT = 0, driveT = 0, laneWarnT = 0, speedLevel = 0;
   // police / wanted system
-  let carsHit = 0, pedsHit = 0, wanted = 0, chase = false, chaseT = 0, health = 100, cop = null, leavingCop = null, copPending = 0, catchT = 0, crashWin = 0;
+  let carsHit = 0, pedsHit = 0, wanted = 0, chase = false, chaseT = 0, health = 100, cop = null, leavingCop = null, copPending = 0, catchT = 0, crashWin = 0, escaped = false, escapes = 0;
+  const CHASE_LEN = 60; // survive this many seconds of the final chase and the police give up
+  const DENSITY = 0.75;  // 25% fewer vehicles and pedestrians on the street
   let bus, traffic, peds, stops, toasts, parts, riders, payQueue, payCur;
   let money, stars, crashes, timeLeft, delivered, scroll, nextTraffic, nextStop, nextPed, stopIdx, braking, shake, elapsed, honkCd, endReason;
 
   function reset() {
     bus = { lane: 2, prevLane: 2, x: laneX(2), speed: 120, inv: 0, dmg: [] }; driveT = 0; laneWarnT = 0; speedLevel = 0;
-    carsHit = 0; pedsHit = 0; wanted = 0; chase = false; chaseT = 0; health = 100; cop = null; leavingCop = null; copPending = 0; catchT = 0; crashWin = 0; stopSiren(); smoke = []; smokeT = 0;
+    carsHit = 0; pedsHit = 0; wanted = 0; chase = false; chaseT = 0; health = 100; cop = null; leavingCop = null; copPending = 0; catchT = 0; crashWin = 0; escaped = false; escapes = 0; stopSiren(); smoke = []; smokeT = 0;
     honkWaves = []; traffic = []; peds = []; stops = []; toasts = []; parts = []; riders = []; payQueue = []; payCur = null;
     money = 0; stars = 5; crashes = 0; timeLeft = SHIFT; delivered = 0; scroll = 0;
     nextTraffic = 300; nextStop = 900; nextPed = 900; stopIdx = 0; braking = false; shake = 0; elapsed = 0; honkCd = 0;
@@ -702,6 +704,7 @@
     const dt = payCur ? realDt * 0.3 : realDt;
 
     elapsed += dt; if (!chase) timeLeft -= realDt; else chaseT += realDt;
+    if (chase && chaseT >= CHASE_LEN) escapeChase();
     honkHoldTick(realDt);
     if (!chase && timeLeft <= 0) { timeLeft = 0; return endShift('الوردية خلصت.. عاش يا اسطى! 💪'); }
     honkCd -= realDt;
@@ -725,9 +728,9 @@
     scroll += move;
 
     // spawning (by distance)
-    nextTraffic -= move; if (nextTraffic <= 0) { spawnTraffic(); nextTraffic = rand(150, 300) * Math.max(0.55, 1 - elapsed / 300) * (chase ? 1.9 : 1); }
+    nextTraffic -= move; if (nextTraffic <= 0) { spawnTraffic(); nextTraffic = rand(150, 300) * Math.max(0.55, 1 - elapsed / 300) * (chase ? 1.9 : 1) / DENSITY; }
     if (!chase) { nextStop -= move; if (nextStop <= 0) { spawnStop(); nextStop = rand(3600, 4800); } }
-    nextPed -= move; if (nextPed <= 0) { spawnPed(); nextPed = rand(700, 1400) * (chase ? 2.2 : 1); }
+    nextPed -= move; if (nextPed <= 0) { spawnPed(); nextPed = rand(700, 1400) * (chase ? 2.2 : 1) / DENSITY; }
 
     // traffic
     const busTop = busY, busBot = busY + busH;
@@ -865,7 +868,14 @@
     bus.speed = 0; bus.inv = 1.6; shake = 14;
     health = Math.max(Math.min(health, 35), health - 8); // regular crashes never finish you off (or heal you)
     if (ped) pedsHit++; else carsHit++;
-    wanted = Math.min(3, carsHit + pedsHit);
+    if (escaped) { // you already outran them once: one more hit and the chase is back on
+      wanted = 3;
+      toast(`${line} 🚨🚨🚨`, '#ff6b6b');
+      setTimeout(() => toast('🚨 البوليس رجع تاني!', '#ff4d4d', W / 2, H * 0.36), 400);
+      startChase();
+      return;
+    }
+    wanted = Math.min(3, wanted + 1);
     toast(`${line} ${'🚨'.repeat(wanted)}`, '#ff6b6b');
     if (wanted === 1) {
       spawnCop('bike');
@@ -885,6 +895,17 @@
     shake = 8;
     toast('🚨 مطاردة! اهرب يا اسطى! 🚨', '#ff4d4d', W / 2, H * 0.42);
     setTimeout(() => toast('الطريق فضي.. دوس! متهدّيش!', '#ffd84d', W / 2, H * 0.48), 900);
+  }
+
+  function escapeChase() {
+    chase = false; wanted = 0; escaped = true; escapes++;
+    crashWin = 0; catchT = 0; copPending = 0;
+    if (cop) { cop.leaving = true; leavingCop = cop; cop = null; } // they drop back and disappear
+    nextStop = rand(900, 1400); // back to work: a stop comes up soon
+    money += 20;
+    sfx.coin();
+    toast('😮‍💨 البوليس سابك! هربت منهم +20', '#3ddc84', W / 2, H * 0.4);
+    setTimeout(() => toast('رجعنا للشغل.. بس خلّي بالك: خبطة كمان والبوليس يرجع!', '#ffd84d', W / 2, H * 0.46), 1200);
   }
 
   // ======================= police =======================
@@ -983,6 +1004,7 @@
       `🚗 عربيات خبطتها: <b>${carsHit}</b><br>` +
       `💀 ضحايا (ناس خبطتهم): <b>${pedsHit}</b><br>` +
       `💸 فلوس اتصادرت: <b>${money} ج</b><br>` +
+      (escapes ? `🏃 هربت من البوليس: <b>${escapes}</b> ${escapes === 1 ? 'مرة' : 'مرات'}<br>` : '') +
       `⚖️ الحكم: <b>${years} ${years > 10 ? 'سنة' : 'سنين'} سجن</b>`;
     $('controls').style.display = 'none';
     setTimeout(() => $('jailScreen').classList.remove('hidden'), 650);
@@ -993,19 +1015,21 @@
     $('money').textContent = money + ' ج';
     const full = Math.round(stars);
     $('stars').textContent = '★'.repeat(full) + '☆'.repeat(5 - full);
-    const tt = chase ? chaseT : timeLeft;
-    const m = Math.floor(tt / 60), s = Math.floor(tt % 60);
+    const tt = chase ? Math.max(0, CHASE_LEN - chaseT) : timeLeft; // in the chase: countdown until they give up
+    const secs = chase ? Math.ceil(tt) : Math.floor(tt);
+    const m = Math.floor(secs / 60), s = secs % 60;
     $('time').textContent = `${chase ? '🚨 ' : ''}${m}:${String(s).padStart(2, '0')}`;
     $('time').style.color = chase || timeLeft < 20 ? '#ff6b6b' : '#fff';
     $('nextCard').style.display = chase ? 'none' : 'block'; // no stops during the chase
     // wanted / health panel
     const wc = $('wantedCard');
-    if (wanted > 0 || health < 100) {
+    if (wanted > 0 || health < 100 || escaped) {
       wc.style.display = 'block';
       wc.classList.toggle('alarm', !!cop && !cop.leaving);
       const busting = catchT > 0.05;
       $('wantedText').textContent = busting ? '⛔ البوليس بيخبط فيك!! دوس!' :
-        chase ? '🚨 مطاردة! اهرب!' : wanted === 2 ? '🚔 البوكس وراك!' : wanted === 1 ? '🚓 المرور وراك!' : '🔧 العربية متبهدلة';
+        chase ? `🚨 مطاردة! اصمد ${Math.ceil(CHASE_LEN - chaseT)} ث` : wanted === 2 ? '🚔 البوكس وراك!' : wanted === 1 ? '🚓 المرور وراك!' :
+        escaped ? '⚠️ خبطة واحدة والبوليس يرجع!' : '🔧 العربية متبهدلة';
       $('hitsText').textContent = `🚗 ${carsHit}  💀 ${pedsHit}`;
       const hf = $('healthFill'); hf.style.width = health + '%';
       hf.style.background = health > 60 ? '#3ddc84' : health > 30 ? '#ffb02e' : '#ff4d4d';
@@ -1794,7 +1818,7 @@
     $('reason').textContent = reason;
     $('finalMoney').textContent = money + ' ج';
     $('newBest').textContent = isBest ? 'أحسن وردية ليك! 🔥' : '';
-    $('finalLines').innerHTML = `ركاب وصّلتهم: <b>${delivered}</b><br>التقييم: <b>${stars.toFixed(1)} ★</b> · خبطات: <b>${carsHit}</b> عربية، <b>${pedsHit}</b> ناس<br>أحسن وردية: <b>${best} ج</b>`;
+    $('finalLines').innerHTML = `ركاب وصّلتهم: <b>${delivered}</b><br>التقييم: <b>${stars.toFixed(1)} ★</b> · خبطات: <b>${carsHit}</b> عربية، <b>${pedsHit}</b> ناس${escapes ? `<br>🏃 هربت من البوليس: <b>${escapes}</b>` : ''}<br>أحسن وردية: <b>${best} ج</b>`;
     $('controls').style.display = 'none';
     setTimeout(() => $('overScreen').classList.remove('hidden'), 500);
   }
