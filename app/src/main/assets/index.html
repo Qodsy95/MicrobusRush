@@ -418,16 +418,16 @@
   let state = 'menu';
   let honkWaves = [], smoke = [], smokeT = 0, driveT = 0, laneWarnT = 0, speedLevel = 0;
   // police / wanted system
-  let carsHit = 0, pedsHit = 0, wanted = 0, chase = false, chaseT = 0, health = 100, cop = null, leavingCop = null, copPending = 0, catchT = 0;
+  let carsHit = 0, pedsHit = 0, wanted = 0, chase = false, chaseT = 0, health = 100, cop = null, leavingCop = null, copPending = 0, catchT = 0, crashWin = 0;
   let bus, traffic, peds, stops, toasts, parts, riders, payQueue, payCur;
   let money, stars, crashes, timeLeft, delivered, scroll, nextTraffic, nextStop, nextPed, stopIdx, braking, shake, elapsed, honkCd, endReason;
 
   function reset() {
     bus = { lane: 2, prevLane: 2, x: laneX(2), speed: 120, inv: 0, dmg: [] }; driveT = 0; laneWarnT = 0; speedLevel = 0;
-    carsHit = 0; pedsHit = 0; wanted = 0; chase = false; chaseT = 0; health = 100; cop = null; leavingCop = null; copPending = 0; catchT = 0; stopSiren(); smoke = []; smokeT = 0;
+    carsHit = 0; pedsHit = 0; wanted = 0; chase = false; chaseT = 0; health = 100; cop = null; leavingCop = null; copPending = 0; catchT = 0; crashWin = 0; stopSiren(); smoke = []; smokeT = 0;
     honkWaves = []; traffic = []; peds = []; stops = []; toasts = []; parts = []; riders = []; payQueue = []; payCur = null;
     money = 0; stars = 5; crashes = 0; timeLeft = SHIFT; delivered = 0; scroll = 0;
-    nextTraffic = 300; nextStop = 500; nextPed = 900; stopIdx = 0; braking = false; shake = 0; elapsed = 0; honkCd = 0;
+    nextTraffic = 300; nextStop = 900; nextPed = 900; stopIdx = 0; braking = false; shake = 0; elapsed = 0; honkCd = 0;
     hidePay();
   }
 
@@ -709,7 +709,7 @@
 
     if (bus.speed > 60) driveT += dt; // only time spent actually driving counts
     laneWarnT -= realDt;
-    const maxS = (220 + Math.min(300, driveT * 5)) * (0.45 + 0.55 * health / 100); // faster the longer you drive; damage slows you
+    const maxS = (220 + Math.min(300, driveT * 5)) * (0.7 + 0.3 * health / 100); // faster the longer you drive; damage slows you
     const lvl = Math.floor(driveT / 12);
     if (lvl > speedLevel) { speedLevel = lvl; toast('🔥 السرعة زادت! دوس يا اسطى', '#ff9f1c', W / 2, H * 0.42); }
     if (braking) bus.speed = Math.max(0, bus.speed - 520 * dt);
@@ -726,7 +726,7 @@
 
     // spawning (by distance)
     nextTraffic -= move; if (nextTraffic <= 0) { spawnTraffic(); nextTraffic = rand(150, 300) * Math.max(0.55, 1 - elapsed / 300) * (chase ? 1.9 : 1); }
-    if (!chase) { nextStop -= move; if (nextStop <= 0) { spawnStop(); nextStop = rand(1400, 1900); } }
+    if (!chase) { nextStop -= move; if (nextStop <= 0) { spawnStop(); nextStop = rand(3600, 4800); } }
     nextPed -= move; if (nextPed <= 0) { spawnPed(); nextPed = rand(700, 1400) * (chase ? 2.2 : 1); }
 
     // traffic
@@ -847,6 +847,7 @@
   }
   function crash(x, y, why, ped) {
     crashes++;
+    crashWin = 2.6; // the police can only close in while you're recovering from a hit
     // dent the microbus where it was hit
     const rx = Math.max(0, Math.min(1, (x - (bus.x - busW / 2)) / busW)), ry = Math.max(0, Math.min(1, (y - busY) / busH));
     bus.dmg.push({ rx, ry, seed: Math.random() * 1e6, small: !!ped });
@@ -855,14 +856,14 @@
     const line = say(ped ? 'hitPed' : 'crash');
     if (chase) {
       // final chase: hits don't count, they only wreck the microbus and slow it down
-      health = Math.max(0, health - (ped ? 12 : 22));
-      bus.speed *= 0.35; bus.inv = 1.0; shake = 10;
+      health = Math.max(0, health - (ped ? 5 : 9));
+      bus.speed *= 0.2; bus.inv = 1.0; shake = 10;
       toast(`${line}  ❤️ ${ltr(Math.round(health) + '%')}`, '#ff6b6b');
       if (health <= 0) busted();
       return;
     }
     bus.speed = 0; bus.inv = 1.6; shake = 14;
-    health = Math.max(Math.min(health, 35), health - 12); // regular crashes never finish you off (or heal you)
+    health = Math.max(Math.min(health, 35), health - 8); // regular crashes never finish you off (or heal you)
     if (ped) pedsHit++; else carsHit++;
     wanted = Math.min(3, carsHit + pedsHit);
     toast(`${line} ${'🚨'.repeat(wanted)}`, '#ff6b6b');
@@ -927,14 +928,20 @@
       if (leavingCop.y > H + 300) leavingCop = null;
     }
     if (!cop) { sirenVolume(0); return; }
-    const base = 220 + Math.min(300, driveT * 5); // the microbus's healthy top speed right now
+    // The police are always slower than the microbus's top speed: at full throttle you pull away.
+    // They can only catch you right after you hit something (crashWin) — braking at a stop is safe.
+    if (crashWin > 0) crashWin -= dt;
+    const myTop = (220 + Math.min(300, driveT * 5)) * (0.7 + 0.3 * health / 100); // same as the bus's max speed
     const minY = busY + busH + 3;
+    const HOVER = 230; // they hang just behind you, flashing at the bottom of the screen
     let vp;
     if (cop.leaving) vp = bus.speed - 170;
     else {
-      const f = cop.kind === 'bike' ? 0.8 : chase ? Math.min(0.99, 0.95 + chaseT * 0.0015) : 0.88;
-      vp = Math.max(170, base * f);
-      if (cop.y - minY > 520) vp = Math.max(vp, bus.speed + 140); // never lose them completely
+      const f = cop.kind === 'bike' ? 0.75 : chase ? 0.9 : 0.85;
+      vp = myTop * f;
+      if (cop.y - minY > HOVER) vp = Math.max(vp, bus.speed + 140); // never lose them completely
+      if (crashWin > 0) vp = Math.max(vp, bus.speed + 300);          // you just crashed: they pounce
+      else if (cop.y - minY < 50) vp = Math.min(vp, bus.speed - 120); // otherwise they can't touch you
     }
     cop.y += (bus.speed - vp) * dt;
     if (!cop.leaving) {
@@ -950,9 +957,10 @@
       cop.y = Math.max(cop.y, cop.lane === bus.lane ? minY : busY + busH * 0.35);
       // ramming: while they're on your bumper (or boxing you in) they wreck the microbus.
       // You're only arrested once the health bar reaches zero.
-      if (cop.y <= minY + 6) {
+      if (cop.y <= minY + 6 && crashWin > 0) {
+        if (catchT === 0) crashWin = Math.min(crashWin, 1.1); // one hard bump per crash, then you can pull away
         catchT = Math.min(1, catchT + dt * 3);
-        health = Math.max(0, health - (cop.kind === 'bike' ? 9 : chase ? 18 : 14) * dt);
+        health = Math.max(0, health - (cop.kind === 'bike' ? 5 : chase ? 8 : 7) * dt);
         if (Math.random() < dt * 6) { burst(cop.x, minY, 4, '#ffd84d', 0.5); shake = Math.max(shake, 3); }
         if (health <= 0) return busted();
       } else catchT = Math.max(0, catchT - dt * 2);
