@@ -419,7 +419,7 @@
   let honkWaves = [], smoke = [], smokeT = 0, driveT = 0, laneWarnT = 0, speedLevel = 0;
   // police / wanted system
   let carsHit = 0, pedsHit = 0, wanted = 0, chase = false, chaseT = 0, health = 100, cop = null, leavingCop = null, copPending = 0, catchT = 0, crashWin = 0, escaped = false, escapes = 0;
-  const CHASE_LEN = 60; // survive this many seconds of the final chase and the police give up
+  const CHASE_LEN = 30; // survive this many seconds of the final chase and the police give up
   const DENSITY = 0.75;  // 25% fewer vehicles and pedestrians on the street
   let bus, traffic, peds, stops, toasts, parts, riders, payQueue, payCur;
   let money, stars, crashes, timeLeft, delivered, scroll, nextTraffic, nextStop, nextPed, stopIdx, braking, shake, elapsed, honkCd, endReason;
