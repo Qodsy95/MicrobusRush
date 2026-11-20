@@ -418,7 +418,7 @@
   let state = 'menu';
   let honkWaves = [], smoke = [], smokeT = 0, driveT = 0, laneWarnT = 0, speedLevel = 0;
   // police / wanted system
-  let carsHit = 0, pedsHit = 0, wanted = 0, chase = false, chaseT = 0, health = 100, cop = null, leavingCop = null, copPending = 0, catchT = 0, crashWin = 0, escaped = false, escapes = 0;
+  let carsHit = 0, pedsHit = 0, wanted = 0, chase = false, chaseT = 0, health = 100, cop = null, leavingCop = null, copPending = 0, catchT = 0, crashWin = 0, escaped = false, escapes = 0, stopCatchT = 0, stallWarned = false, bustedBy = '';
   const CHASE_LEN = 30; // survive this many seconds of the final chase and the police give up
   const DENSITY = 0.75;  // 25% fewer vehicles and pedestrians on the street
   let bus, traffic, peds, stops, toasts, parts, riders, payQueue, payCur;
@@ -426,7 +426,7 @@
 
   function reset() {
     bus = { lane: 2, prevLane: 2, x: laneX(2), speed: 120, inv: 0, dmg: [] }; driveT = 0; laneWarnT = 0; speedLevel = 0;
-    carsHit = 0; pedsHit = 0; wanted = 0; chase = false; chaseT = 0; health = 100; cop = null; leavingCop = null; copPending = 0; catchT = 0; crashWin = 0; escaped = false; escapes = 0; stopSiren(); smoke = []; smokeT = 0;
+    carsHit = 0; pedsHit = 0; wanted = 0; chase = false; chaseT = 0; health = 100; cop = null; leavingCop = null; copPending = 0; catchT = 0; crashWin = 0; escaped = false; escapes = 0; stopCatchT = 0; stallWarned = false; bustedBy = ''; stopSiren(); smoke = []; smokeT = 0;
     honkWaves = []; traffic = []; peds = []; stops = []; toasts = []; parts = []; riders = []; payQueue = []; payCur = null;
     money = 0; stars = 5; crashes = 0; timeLeft = SHIFT; delivered = 0; scroll = 0;
     nextTraffic = 300; nextStop = 900; nextPed = 900; stopIdx = 0; braking = false; shake = 0; elapsed = 0; honkCd = 0;
@@ -952,6 +952,7 @@
     // The police are always slower than the microbus's top speed: at full throttle you pull away.
     // They can only catch you right after you hit something (crashWin) — braking at a stop is safe.
     if (crashWin > 0) crashWin -= dt;
+    const stalled = chase && bus.speed < 35; // ~9 km/h: you've (nearly) stopped in the middle of the chase
     const myTop = (220 + Math.min(300, driveT * 5)) * (0.7 + 0.3 * health / 100); // same as the bus's max speed
     const minY = busY + busH + 3;
     const HOVER = 230; // they hang just behind you, flashing at the bottom of the screen
@@ -961,7 +962,7 @@
       const f = cop.kind === 'bike' ? 0.75 : chase ? 0.9 : 0.85;
       vp = myTop * f;
       if (cop.y - minY > HOVER) vp = Math.max(vp, bus.speed + 140); // never lose them completely
-      if (crashWin > 0) vp = Math.max(vp, bus.speed + 300);          // you just crashed: they pounce
+      if (crashWin > 0 || stalled) vp = Math.max(vp, bus.speed + 300); // you crashed or stopped: they pounce
       else if (cop.y - minY < 50) vp = Math.min(vp, bus.speed - 120); // otherwise they can't touch you
     }
     cop.y += (bus.speed - vp) * dt;
@@ -985,6 +986,13 @@
         if (Math.random() < dt * 6) { burst(cop.x, minY, 4, '#ffd84d', 0.5); shake = Math.max(shake, 3); }
         if (health <= 0) return busted();
       } else catchT = Math.max(0, catchT - dt * 2);
+      // stopped in the final chase: they pull up on you and make the arrest, whatever your health
+      if (stalled && !stallWarned) { stallWarned = true; toast('⛔ متقفش! البوليس جاي يقفشك.. دوس!', '#ff4d4d', W / 2, H * 0.4); }
+      if (!stalled) stallWarned = false;
+      if (stalled && cop.y <= minY + 8) {
+        stopCatchT += dt;
+        if (stopCatchT >= 1.0) { bustedBy = 'stopped'; return busted(); }
+      } else stopCatchT = Math.max(0, stopCatchT - dt * 2);
     }
     cop.x += (laneX(cop.lane) - cop.x) * Math.min(1, dt * 5);
     if (cop.leaving && cop.y > H + 300) { cop = null; if (copPending <= 0) stopSiren(); return; }
@@ -999,7 +1007,8 @@
     shake = 12;
     const years = 1 + carsHit * 2 + pedsHit * 7 + Math.floor(chaseT / 20);
     const cm = Math.floor(chaseT / 60), cs = Math.floor(chaseT % 60);
-    $('jailReason').textContent = chase ? `العربية اتدشدشت والبوليس قفشك بعد مطاردة ${cm}:${String(cs).padStart(2, '0')}` : 'العربية اتدشدشت والبوليس قفشك!';
+    $('jailReason').textContent = bustedBy === 'stopped' ? `وقّفت في نص المطاردة والبوليس قفشك! (بعد ${cm}:${String(cs).padStart(2, '0')})` :
+      chase ? `العربية اتدشدشت والبوليس قفشك بعد مطاردة ${cm}:${String(cs).padStart(2, '0')}` : 'العربية اتدشدشت والبوليس قفشك!';
     $('jailStats').innerHTML =
       `🚗 عربيات خبطتها: <b>${carsHit}</b><br>` +
       `💀 ضحايا (ناس خبطتهم): <b>${pedsHit}</b><br>` +
@@ -1027,14 +1036,16 @@
       wc.style.display = 'block';
       wc.classList.toggle('alarm', !!cop && !cop.leaving);
       const busting = catchT > 0.05;
-      $('wantedText').textContent = busting ? '⛔ البوليس بيخبط فيك!! دوس!' :
+      $('wantedText').textContent = stopCatchT > 0 ? '⛔ البوليس بيقفشك!! دوس بسرعة!' :
+        chase && bus.speed < 35 ? '⛔ وقّفت! البوليس جاي.. دوس!' :
+        busting ? '⛔ البوليس بيخبط فيك!! دوس!' :
         chase ? `🚨 مطاردة! اصمد ${Math.ceil(CHASE_LEN - chaseT)} ث` : wanted === 2 ? '🚔 البوكس وراك!' : wanted === 1 ? '🚓 المرور وراك!' :
         escaped ? '⚠️ خبطة واحدة والبوليس يرجع!' : '🔧 العربية متبهدلة';
       $('hitsText').textContent = `🚗 ${carsHit}  💀 ${pedsHit}`;
       const hf = $('healthFill'); hf.style.width = health + '%';
       hf.style.background = health > 60 ? '#3ddc84' : health > 30 ? '#ffb02e' : '#ff4d4d';
       const close = cop && !cop.leaving ? Math.max(0, Math.min(1, 1 - (cop.y - (busY + busH)) / 600)) : 0;
-      $('copFill').style.width = Math.round(close * 100) + '%';
+      $('copFill').style.width = Math.round((stopCatchT > 0 ? 1 : close) * 100) + '%';
     } else wc.style.display = 'none';
     const nx = upcomingStation();
     const counts = STATIONS.map(st => [st, riders.filter(r => r.dest === st).length]).filter(c => c[1]);
