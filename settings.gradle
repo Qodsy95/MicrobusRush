@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "MicrobusRush"
-include ':app'
+include ':app', ':app3d'

@@ -1,0 +1,36 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.microbusrush.game3d'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.microbusrush.game3d'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Signed with the standard debug key so the APK installs directly on any phone.
+            // For Google Play you would add your own upload key here instead.
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    lint {
+        // Sideloaded APK: don't let Play-Store policy lint checks block the build.
+        checkReleaseBuilds false
+        abortOnError false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

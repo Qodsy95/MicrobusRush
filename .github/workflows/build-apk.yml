@@ -28,27 +28,54 @@ jobs:
           yes | "$SDKM" --licenses > /dev/null || true
           "$SDKM" "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
+      - name: Bundle Three.js into the 3D app (so it runs offline)
+        run: |
+          curl -fsSL https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js -o app3d/src/main/assets/three.min.js
+          head -c 120 app3d/src/main/assets/three.min.js; echo
+          ls -l app3d/src/main/assets/
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Build APK
+      - name: Build APKs
         run: gradle assembleRelease --no-daemon
 
-      - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk MicrobusRush.apk
+      - name: Rename APKs
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk MicrobusRush.apk
+          cp app3d/build/outputs/apk/release/app3d-release.apk MicrobusRush3D.apk
 
       - name: Keep a copy as a build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MicrobusRush-apk
-          path: MicrobusRush.apk
+          name: MicrobusRush-apks
+          path: |
+            MicrobusRush.apk
+            MicrobusRush3D.apk
 
-      - name: Publish download link (GitHub Release)
+      - name: Publish download links (GitHub Release)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "v1.0.${{ github.run_number }}" MicrobusRush.apk \
+          gh release create "v1.0.${{ github.run_number }}" MicrobusRush.apk MicrobusRush3D.apk \
             --title "ميكروباص راش — Microbus Rush (build ${{ github.run_number }})" \
-            --notes "Download MicrobusRush.apk below and open it on your Android phone to install." \
+            --notes "MicrobusRush.apk = the original game · MicrobusRush3D.apk = the 3D version. Download on your Android phone and open to install." \
             --latest
+
+      # ---- automated 3D screenshots (for checking the 3D renderer) ----
+      - name: 3D preview screenshots
+        continue-on-error: true
+        run: |
+          pip install --quiet playwright
+          python tools/preview3d.py
+
+      - name: Publish 3D preview screenshots
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete preview-3d --yes --cleanup-tag || true
+          gh release create preview-3d preview/* --prerelease --latest=false \
+            --title "3D preview screenshots (automated, build ${{ github.run_number }})" \
+            --notes "Automatic screenshots of the 3D game rendered in headless Chrome. Not an app release."
