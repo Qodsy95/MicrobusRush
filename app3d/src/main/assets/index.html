@@ -1791,7 +1791,8 @@
       const [, cy, cz] = proj(cop.x, cop.y + cop.h / 2, 0.5);
       if (cz > 1 || cy > SH - 30) {
         const meters = Math.max(1, Math.round((cop.y - (busY + busH)) / 6));
-        const bx = SW / 2, by = SH - Math.max(48, Math.min(70, SH * 0.06));
+        const rear = proj(bus.x, busY + busH, 0)[1];
+        const bx = SW / 2, by = Math.max(rear + 34, Math.min(SH - 125, rear + 70)); // just below the microbus, above the buttons
         ctx.fillStyle = ph ? 'rgba(200,20,20,.88)' : 'rgba(20,60,200,.88)';
         rrect(bx - 76, by - 15, 152, 30, 15); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.font = '900 13px Cairo, Tahoma, sans-serif'; ctx.direction = 'rtl';
