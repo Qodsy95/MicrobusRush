@@ -15,7 +15,7 @@ OUT = 'preview'
 html = open(f'{SRC}/index.html', encoding='utf-8').read()
 hook = "  reset();\n  init3D();\n"
 assert hook in html, 'boot hook not found'
-html = html.replace(hook, hook + "  window.__crash = ped => crash(bus.x, busY + 4, 'x', ped);\n"
+html = html.replace(hook, hook + "  R.noAdapt = true;\n  window.__crash = ped => crash(bus.x, busY + 4, 'x', ped);\n"
                                  "  window.__brake = on => setBrake(on);\n")
 open(f'{SRC}/_preview.html', 'w', encoding='utf-8').write(html)
 os.makedirs(OUT, exist_ok=True)
