@@ -1161,7 +1161,7 @@
       for (let i = 0; i < 9000; i++) { g.fillStyle = r() < 0.5 ? `rgba(255,255,255,${r() * 0.07})` : `rgba(0,0,0,${r() * 0.2})`; g.fillRect(r() * w, r() * h, 1 + r() * 2, 1 + r() * 2); }
       g.strokeStyle = 'rgba(0,0,0,.28)'; g.lineWidth = 1.2;
       for (let i = 0; i < 6; i++) { g.beginPath(); let x = r() * w, y = r() * h; g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (r() - 0.5) * 26; y += r() * 18; g.lineTo(x, y); } g.stroke(); }
-      g.fillStyle = 'rgba(20,20,24,.5)'; g.fillRect(150, 300, 60, 90); g.fillRect(30, 760, 70, 60);       // patches
+      g.fillStyle = 'rgba(20,20,24,.22)'; g.fillRect(150, 300, 50, 70);                                      // patch
       g.fillStyle = '#4f4f55'; g.beginPath(); g.arc(128, 600, 16, 0, 6.28); g.fill();                    // manhole
       g.strokeStyle = '#2d2d31'; g.lineWidth = 2; g.beginPath(); g.arc(128, 600, 16, 0, 6.28); g.stroke();
       g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(70, 140, 22, 12, 0, 0, 6.28); g.fill();   // oil stain
@@ -1414,6 +1414,7 @@
   function makePerson(L, o = {}) {
     const g = new THREE.Group();
     const k = L.kid ? 0.72 : 1;
+    g.scale.setScalar(o.seated ? 1.15 : 1.35); // slightly larger than life so they read well from the high camera
     const inner = new THREE.Group(); inner.scale.setScalar(k); g.add(inner);
     if (!o.seated) blob(0.9, 0.9, 0.5, g);
     const top = lam(L.top), skin = lam(L.skin);
@@ -1722,16 +1723,20 @@
   function updateCamera() {
     const c = R.cam, aspect = SW / SH;
     c.aspect = aspect;
-    const tanH = Math.tan(THREE.MathUtils.degToRad(c.fov / 2)) * aspect;
-    const H0 = 17, B0 = 13, A0 = 9;                     // height, distance behind, look-ahead
-    const dist = Math.hypot(H0, B0);
-    const k = Math.max(1, 9.2 / (dist * tanH));          // pull back on narrow (portrait) screens so all 3 lanes fit
-    const bx = wx(bus.x) * 0.5;
-    const target = new THREE.Vector3(bx, H0 * k, B0 * k);
-    R.camPos.lerp(target, 0.1);
+    const tanA = Math.tan(THREE.MathUtils.degToRad(c.fov / 2));
+    const DEP = THREE.MathUtils.degToRad(56);          // high angle: camera looks down at the bus at 56°
+    const FY = 0.6;                                     // bus centre sits at 60% of the screen height
+    const off = Math.atan((2 * FY - 1) * tanA);         // angle between the view centre and the bus
+    const pitch = DEP - off;
+    let D = 9.4 / (tanA * aspect * Math.cos(off));       // far enough that all 3 lanes + both curbs fit across the screen
+    D = Math.max(20, Math.min(48, D));
+    const bx = wx(bus.x) * 0.25, bz = wz(busY + busH / 2);
+    if (!R.camT) R.camT = new THREE.Vector3();
+    R.camT.set(bx, D * Math.sin(DEP), bz + D * Math.cos(DEP));
+    R.camPos.lerp(R.camT, 0.1);
     c.position.copy(R.camPos);
-    if (shake) c.position.add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), 0).multiplyScalar(shake * 0.03));
-    c.lookAt(bx * 0.8, 0, -A0 * k);
+    if (shake) { c.position.x += rand(-1, 1) * shake * 0.03; c.position.y += rand(-1, 1) * shake * 0.03; }
+    c.rotation.set(-pitch, 0, 0);
     c.updateProjectionMatrix();
     R.pxPerUnit = null;
   }
@@ -1783,13 +1788,13 @@
       eg.addColorStop(0.82, 'rgba(0,0,0,0)'); eg.addColorStop(1, ph ? `rgba(30,90,255,${a})` : `rgba(255,30,30,${a})`);
       ctx.fillStyle = eg; ctx.fillRect(0, 0, SW, SH);
       // off-screen police indicator
-      const [, cy] = proj(cop.x, cop.y + cop.h / 2, 0.5);
-      if (cy > SH - 30) {
+      const [, cy, cz] = proj(cop.x, cop.y + cop.h / 2, 0.5);
+      if (cz > 1 || cy > SH - 30) {
         const meters = Math.max(1, Math.round((cop.y - (busY + busH)) / 6));
-        const bx = SW / 2, by = SH - 150;
-        ctx.fillStyle = ph ? 'rgba(200,20,20,.85)' : 'rgba(20,60,200,.85)';
-        rrect(bx - 82, by - 16, 164, 32, 16); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.font = '900 14px Cairo, Tahoma, sans-serif'; ctx.direction = 'rtl';
+        const bx = SW / 2, by = SH - Math.max(48, Math.min(70, SH * 0.06));
+        ctx.fillStyle = ph ? 'rgba(200,20,20,.88)' : 'rgba(20,60,200,.88)';
+        rrect(bx - 76, by - 15, 152, 30, 15); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.font = '900 13px Cairo, Tahoma, sans-serif'; ctx.direction = 'rtl';
         ctx.fillText(`🚨 البوليس ورا ${meters} متر ⬇`, bx, by + 5);
       }
     }
